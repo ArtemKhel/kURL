@@ -1,0 +1,7 @@
+[workspace]
+members = ["common", "core", "gateway"]
+resolver = "3"
+
+
+[workspace.dependencies]
+tokio = { version = "1.52.3", features = ["full"] }
