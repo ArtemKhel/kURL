@@ -9,11 +9,13 @@ use crate::state::SharedState;
 #[derive(Deserialize)]
 pub struct CreateReq{
     code: String,
+    target: String,
 }
 
+// TODO:
 #[derive(Serialize)]
 pub struct CreateResp{
-    code: String,
+    url: String,
 }
 
 pub async fn create(
@@ -21,9 +23,9 @@ pub async fn create(
     Json(create_req): Json<CreateReq>
 ) -> Result<Json<CreateResp>, StatusCode> {
     let mut guard = state.write().unwrap();
-    match guard.db.try_insert(create_req.code.clone(), format!("hello_{}", create_req.code.clone())){
+    match guard.db.try_insert(create_req.code.clone(), create_req.target.clone()) {
         Ok(resp) => {
-            Ok(Json(CreateResp{code: resp.clone()}))
+            Ok(Json(CreateResp{ url: resp.clone()}))
         }
         Err(_) => {
             Err(StatusCode::CONFLICT)

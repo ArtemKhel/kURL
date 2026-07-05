@@ -7,11 +7,11 @@ const DEFAULT_REDIS_TTL: &str = "3600";
 #[derive(Debug, Clone, clap::Parser)]
 pub struct Config {
     #[clap(env = "LISTENER_ADDRESS", default_value = DEFAULT_ADDRESS)]
-    listener_address: SocketAddr,
+    pub listener_address: SocketAddr,
     #[clap(env = "REDIS_URL", default_value = DEFAULT_REDIS)]
-    redis_url: String,
+    pub redis_url: String,
     #[clap(env = "REDIS_TTL", default_value = DEFAULT_REDIS_TTL)]
-    redis_ttl: usize,
+    pub redis_ttl: usize,
 }
 
 // pub enum ConfigError {
