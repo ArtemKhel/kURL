@@ -1,17 +1,20 @@
 use std::net::SocketAddr;
 
 const DEFAULT_ADDRESS: &str = "127.0.0.1:3000";
-const DEFAULT_REDIS: &str = "redis://127.0.0.1:6379";
+const DEFAULT_REDIS_URL: &str = "redis://127.0.0.1:6379";
 const DEFAULT_REDIS_TTL: &str = "3600";
+const DEFAULT_CORE_URL: &str = "grpc://127.0.0.1:3001";
 
 #[derive(Debug, Clone, clap::Parser)]
-pub struct Config {
+pub struct AppConfig {
     #[clap(env = "LISTENER_ADDRESS", default_value = DEFAULT_ADDRESS)]
     pub listener_address: SocketAddr,
-    #[clap(env = "REDIS_URL", default_value = DEFAULT_REDIS)]
+    #[clap(env = "REDIS_URL", default_value = DEFAULT_REDIS_URL)]
     pub redis_url: String,
     #[clap(env = "REDIS_TTL", default_value = DEFAULT_REDIS_TTL)]
-    pub redis_ttl: usize,
+    pub redis_ttl: u64,
+    #[clap(env = "CORE_URL", default_value = DEFAULT_CORE_TTL)]
+    pub core_url: String,
 }
 
 // pub enum ConfigError {

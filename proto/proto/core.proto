@@ -1,0 +1,24 @@
+syntax = "proto3";
+package core;
+
+service LinkService {
+  rpc CreateLink(CreateLinkRequest) returns (CreateLinkResponse);
+  rpc GetLink(GetLinkRequest) returns (GetLinkResponse);
+}
+
+message CreateLinkRequest {
+  string short_code = 1;
+  string target = 2;
+}
+
+message CreateLinkResponse {
+  string short_code = 1;
+}
+
+message GetLinkRequest {
+  string short_code = 1;
+}
+
+message GetLinkResponse {
+  string target = 1;
+}
