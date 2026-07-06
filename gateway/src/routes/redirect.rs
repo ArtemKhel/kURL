@@ -22,15 +22,8 @@ pub async fn redirect(State(state): State<SharedState>, Path(short_code): Path<S
     }
 
     info!(short_code = %short_code, "Cache miss");
-    match grpc::core_request(&state, short_code.clone()).await {
-        Ok(GetLinkResponse { target }) => {
-            let target_clone = target.clone();
-            let _ = tokio::spawn(async move {
-                redis_set(&state, short_code, target_clone).await;
-            })
-            .await;
-            Redirect::permanent(&target).into_response()
-        }
+    match grpc::core_get_link(&state, short_code.clone()).await {
+        Ok(GetLinkResponse { target }) => Redirect::permanent(&target).into_response(),
         None => (StatusCode::NOT_FOUND, "Not Found").into_response(),
     }
 }

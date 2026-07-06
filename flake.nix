@@ -55,6 +55,7 @@
               toolchain
               cargo-expand
               protobuf
+              redis
             ];
 
             RUST_SRC_PATH = "${toolchain}/lib/rustlib/src/rust/library";

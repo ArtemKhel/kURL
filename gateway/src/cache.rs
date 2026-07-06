@@ -15,5 +15,3 @@ pub async fn redis_set(state: &SharedState, short_code: String, target_url: Stri
         .await
         .unwrap()
 }
-
-pub async fn redis_invalidate(state: &SharedState, short_code: String) {}
