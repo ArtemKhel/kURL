@@ -14,4 +14,4 @@ pub struct AppState {
     pub core: LinkServiceClient<Channel>,
 }
 
-pub type SharedState = Arc<RwLock<AppState>>;
+pub type SharedState = Arc<AppState>;

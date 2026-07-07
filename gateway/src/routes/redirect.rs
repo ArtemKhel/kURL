@@ -9,7 +9,7 @@ use tonic::Status;
 use tracing::info;
 
 use crate::{
-    cache::{redis_query, redis_set},
+    cache::{redis_query },
     grpc,
     state::SharedState,
 };

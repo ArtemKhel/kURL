@@ -54,6 +54,8 @@
             buildInputs = [
               toolchain
               cargo-expand
+              sqlx-cli
+
               protobuf
               redis
             ];

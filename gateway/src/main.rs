@@ -37,11 +37,11 @@ async fn main() {
     // GRPC
     let core_client = LinkServiceClient::connect(config.core_url).await.unwrap();
 
-    let state = Arc::new(RwLock::new(AppState {
+    let state = Arc::new(AppState {
         config: config.clone(),
         redis: redis_pool,
         core: core_client,
-    }));
+    });
 
     let app = Router::new()
         .without_v07_checks()

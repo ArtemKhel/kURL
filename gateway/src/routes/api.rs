@@ -1,11 +1,11 @@
 use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 
-use crate::state::SharedState;
+use crate::{grpc, state::SharedState};
 
 #[derive(Deserialize)]
 pub struct CreateReq {
-    short: String,
+    short_code: String,
     target: String,
 }
 
@@ -19,12 +19,7 @@ pub async fn create(
     State(state): State<SharedState>,
     Json(create_req): Json<CreateReq>,
 ) -> Result<Json<CreateResp>, StatusCode> {
-    match state
-        .write()
-        .await
-        .db
-        .try_insert(create_req.short.clone(), create_req.target.clone())
-    {
+    match grpc::core_create_link(&state, create_req.short_code, create_req.target) {
         Ok(resp) => Ok(Json(CreateResp { url: resp.clone() })),
         Err(_) => Err(StatusCode::CONFLICT),
     }

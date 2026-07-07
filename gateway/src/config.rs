@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 const DEFAULT_ADDRESS: &str = "127.0.0.1:3000";
 const DEFAULT_REDIS_URL: &str = "redis://127.0.0.1:6379";
 const DEFAULT_REDIS_TTL: &str = "3600";
-const DEFAULT_CORE_URL: &str = "grpc://127.0.0.1:3001";
+const DEFAULT_CORE_GRPC: &str = "grpc://127.0.0.1:3001";
 
 #[derive(Debug, Clone, clap::Parser)]
 pub struct AppConfig {
