@@ -1,5 +1,8 @@
 default:
     cargo build
 
-gate: 
+gateway:
     cargo run --bin gateway
+
+core:
+    cargo run --bin core

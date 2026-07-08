@@ -1,17 +1,15 @@
 use std::{
-    collections::HashMap,
     sync::{Arc},
 };
-use tokio::sync::RwLock;
 use tonic::transport::Channel;
 use proto::url::link_service_client::LinkServiceClient;
-use crate::config::AppConfig;
+use common::config::GatewayConfig;
 
 #[derive(Debug)]
 pub struct AppState {
-    pub config: AppConfig,
+    pub config: GatewayConfig,
     pub redis: deadpool_redis::Pool,
-    pub core: LinkServiceClient<Channel>,
+    pub grpc_client: LinkServiceClient<Channel>,
 }
 
 pub type SharedState = Arc<AppState>;

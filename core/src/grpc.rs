@@ -1,7 +1,6 @@
 use proto::url::{link_service_server, CreateLinkRequest, CreateLinkResponse, GetLinkRequest, GetLinkResponse};
-use redis::AsyncTypedCommands;
 use tonic::{Request, Response, Status};
-use tracing::{error, warn};
+use tracing::{error};
 
 use crate::{
     db,

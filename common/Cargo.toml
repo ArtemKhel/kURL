@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 tokio.workspace = true
+config.workspace = true
+serde.workspace = true

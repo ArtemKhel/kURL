@@ -1,3 +1,5 @@
+pub mod config;
+
 use tokio::signal;
 
 pub async fn shutdown() {

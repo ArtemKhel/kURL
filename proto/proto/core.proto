@@ -7,7 +7,7 @@ service LinkService {
 }
 
 message CreateLinkRequest {
-  string short_code = 1;
+  string short_code = 1; // todo: oneof with auto gen
   string target = 2;
 }
 
