@@ -3,7 +3,7 @@ mod grpc;
 mod routes;
 mod state;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use axum::{
     routing::{get, post},
@@ -15,6 +15,45 @@ use tokio::net::TcpListener;
 
 use crate::state::AppState;
 
+async fn connect_with_retry<F, Fut, T>(
+    service_name: &str,
+    mut f: F,
+    max_retries: u32,
+    initial_delay: Duration,
+) -> Result<T, Box<dyn std::error::Error>>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, Box<dyn std::error::Error>>>,
+{
+    let mut delay = initial_delay;
+    let mut attempt = 0;
+
+    loop {
+        match f().await {
+            Ok(result) => {
+                tracing::info!("{} connected successfully", service_name);
+                return Ok(result);
+            }
+            Err(e) => {
+                attempt += 1;
+                if attempt >= max_retries {
+                    tracing::error!("{} failed after {} attempts: {}", service_name, attempt, e);
+                    return Err(format!("Failed to connect to {}", service_name).into());
+                }
+                tracing::warn!(
+                    "{} attempt {} failed: {}. Retrying in {:?}...",
+                    service_name,
+                    attempt,
+                    e,
+                    delay
+                );
+                tokio::time::sleep(delay).await;
+                delay = delay.saturating_mul(2);
+            }
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // todo: tracing-sub
@@ -22,13 +61,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config: common::config::GatewayConfig = common::config::AppConfig::load()?.into();
     dbg!(&config);
 
-    // Redis
-    let redis_config = deadpool_redis::Config::from_url(config.cache.to_string());
-    let redis_pool = redis_config.create_pool(Some(deadpool_redis::Runtime::Tokio1))?;
-    dbg!(&redis_pool.status());
+    let (redis_pool, core_client) = tokio::try_join!(
+        connect_with_retry(
+            "Redis",
+            || {
+                let cache_url = config.cache.to_string();
+                async move {
+                    let cfg = deadpool_redis::Config::from_url(cache_url);
+                    let pool = cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1))?;
+                    let mut conn = pool.get().await?;
+                    redis::cmd("PING").query_async::<String>(&mut *conn).await?;
+                    Ok(pool)
+                }
+            },
+            8,
+            Duration::from_millis(50)
+        ),
+        connect_with_retry(
+            "Core gRPC",
+            || {
+                let core_url = config.core.to_string();
+                async move {
+                    let grpc_client = LinkServiceClient::connect(core_url).await?;
+                    Ok(grpc_client)
+                }
+            },
+            8,
+            Duration::from_millis(50)
+        )
+    )?;
 
-    // GRPC
-    let core_client = LinkServiceClient::connect(config.core.to_string()).await?;
+    tracing::info!("All services initialized successfully");
 
     let state = Arc::new(AppState {
         config: config.clone(),
