@@ -18,5 +18,7 @@ tracing-subscriber.workspace = true
 config.workspace = true
 serde.workspace = true
 
+askama = "0.16.0"
+
 [features]
 web = []

@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+
 use config::{Config, ConfigError, File};
 use serde::Deserialize;
 

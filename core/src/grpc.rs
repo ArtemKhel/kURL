@@ -1,6 +1,6 @@
-use proto::url::{link_service_server, CreateLinkRequest, CreateLinkResponse, GetLinkRequest, GetLinkResponse};
+use proto::url::{CreateLinkRequest, CreateLinkResponse, GetLinkRequest, GetLinkResponse, link_service_server};
 use tonic::{Request, Response, Status};
-use tracing::{error};
+use tracing::error;
 
 use crate::{
     db,

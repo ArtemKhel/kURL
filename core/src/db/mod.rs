@@ -1,4 +1,5 @@
 use std::time::Duration;
+
 use sqlx::postgres::PgPoolOptions;
 
 pub mod links;

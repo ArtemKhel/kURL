@@ -26,7 +26,9 @@ pub enum CreateLinkError {
 
 pub async fn create_link(pool: &PgPool, short_code: String, target: String) -> Result<(), CreateLinkError> {
     sqlx::query!(
-        "insert into links (short_code, target) values ($1, $2)",
+        "insert into links (short_code, target)
+        values ($1, $2)
+        on conflict do nothing", // todo: ?
         short_code,
         target
     )

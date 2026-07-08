@@ -6,15 +6,15 @@ mod state;
 use std::{sync::Arc, time::Duration};
 
 use axum::{
-    routing::{get, post},
     Router,
+    routing::{get, post},
 };
 use common;
 use proto::url::link_service_client::LinkServiceClient;
 use tokio::net::TcpListener;
 use tracing::info;
-use crate::state::AppState;
 
+use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

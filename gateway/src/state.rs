@@ -1,9 +1,8 @@
-use std::{
-    sync::{Arc},
-};
-use tonic::transport::Channel;
-use proto::url::link_service_client::LinkServiceClient;
+use std::sync::Arc;
+
 use common::config::GatewayConfig;
+use proto::url::link_service_client::LinkServiceClient;
+use tonic::transport::Channel;
 
 #[derive(Debug)]
 pub struct AppState {
