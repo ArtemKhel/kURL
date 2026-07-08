@@ -12,47 +12,9 @@ use axum::{
 use common;
 use proto::url::link_service_client::LinkServiceClient;
 use tokio::net::TcpListener;
-
+use tracing::info;
 use crate::state::AppState;
 
-async fn connect_with_retry<F, Fut, T>(
-    service_name: &str,
-    mut f: F,
-    max_retries: u32,
-    initial_delay: Duration,
-) -> Result<T, Box<dyn std::error::Error>>
-where
-    F: FnMut() -> Fut,
-    Fut: Future<Output = Result<T, Box<dyn std::error::Error>>>,
-{
-    let mut delay = initial_delay;
-    let mut attempt = 0;
-
-    loop {
-        match f().await {
-            Ok(result) => {
-                tracing::info!("{} connected successfully", service_name);
-                return Ok(result);
-            }
-            Err(e) => {
-                attempt += 1;
-                if attempt >= max_retries {
-                    tracing::error!("{} failed after {} attempts: {}", service_name, attempt, e);
-                    return Err(format!("Failed to connect to {}", service_name).into());
-                }
-                tracing::warn!(
-                    "{} attempt {} failed: {}. Retrying in {:?}...",
-                    service_name,
-                    attempt,
-                    e,
-                    delay
-                );
-                tokio::time::sleep(delay).await;
-                delay = delay.saturating_mul(2);
-            }
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -62,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dbg!(&config);
 
     let (redis_pool, core_client) = tokio::try_join!(
-        connect_with_retry(
+        common::connect_with_retry(
             "Redis",
             || {
                 let cache_url = config.cache.to_string();
@@ -77,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             8,
             Duration::from_millis(50)
         ),
-        connect_with_retry(
+        common::connect_with_retry(
             "Core gRPC",
             || {
                 let core_url = config.core.to_string();
@@ -91,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     )?;
 
-    tracing::info!("All services initialized successfully");
+    info!("All services initialized successfully");
 
     let state = Arc::new(AppState {
         config: config.clone(),
@@ -102,7 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .without_v07_checks()
         .route("/", get(routes::root::hello))
-        .route("/api/create", post(routes::api::create))
+        .route("/api/create", post(routes::create::create))
         .route("/s/{code}", get(routes::redirect::redirect))
         .with_state(state);
     let listener = TcpListener::bind(config.gateway.to_string()).await?;

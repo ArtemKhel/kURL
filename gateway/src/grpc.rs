@@ -3,6 +3,7 @@ use tonic::Status;
 
 use crate::state::SharedState;
 
+// TODO: timeouts
 pub async fn core_get_link(state: &SharedState, short_code: String) -> Result<String, Status> {
     let mut client = state.grpc_client.clone();
     let request = tonic::Request::new(GetLinkRequest { short_code });

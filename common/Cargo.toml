@@ -7,3 +7,4 @@ edition = "2024"
 tokio.workspace = true
 config.workspace = true
 serde.workspace = true
+tracing.workspace = true
