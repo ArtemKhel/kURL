@@ -1,14 +1,19 @@
-use askama::Template; // bring trait in scope
+use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Template)] // this will generate the code...
-#[template(path = "hello.html")] // using the template in this path, relative
-// to the `templates` dir in the crate root
-struct HelloTemplate<'a> { // the name of the struct can be anything
-    name: &'a str, // the field name should match the variable name
-    // in your template
+use askama::Template;
+use axum::response::Html;
+
+#[derive(Template)]
+#[template(path = "hello.html")]
+struct HelloTemplate<'a> {
+    name: &'a str,
+    time: u64,
 }
 
-fn main() {
-    let hello = HelloTemplate { name: "world" }; // instantiate your struct
-    println!("{}", hello.render().unwrap()); // then render it.
+pub(crate) async fn hello() -> Html<String> {
+    let template = HelloTemplate {
+        name: "world",
+        time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+    };
+    Html(template.render().unwrap())
 }

@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         .without_v07_checks()
-        .route("/", get(routes::root::hello))
+        .route("/", get(routes::web::hello))
         .route("/api/create", post(routes::create::create))
         .route("/s/{code}", get(routes::redirect::redirect))
         .with_state(state);
