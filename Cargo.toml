@@ -11,6 +11,7 @@ tonic = "0.14.6"
 tokio = { version = "1.52.3", features = ["full"] }
 axum = { version = "0.8.9" }
 tower = { version = "0.5.3"}
+tower-http = { version = "0.7.0",features = ["trace"] }
 redis = { version = "1.3.0", features = ["tokio-comp"] }
 deadpool-redis = { version = "0.23.0" }
 tracing = {version = "0.1.44"}

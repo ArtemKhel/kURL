@@ -1,7 +1,7 @@
 pub mod config;
-mod shutdown;
-pub mod logging;
 pub mod events;
+pub mod logging;
+mod shutdown;
 
 use std::time::Duration;
 

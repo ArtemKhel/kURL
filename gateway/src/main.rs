@@ -2,26 +2,27 @@ mod cache;
 mod grpc;
 mod routes;
 mod state;
+pub mod web;
 
 use std::{sync::Arc, time::Duration};
 
 use axum::{
-    Router,
     routing::{delete, get, post},
+    Router,
 };
 use common;
 use proto::url::link_service_client::LinkServiceClient;
 use tokio::net::TcpListener;
-use tracing::{info, info_span, span};
+use tower_http::trace::TraceLayer;
+use tracing::{debug, info, info_span};
 
 use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // todo: tracing-sub
-    tracing_subscriber::fmt::init();
     let config: common::config::GatewayConfig = common::config::AppConfig::load()?.into();
-    dbg!(&config);
+    common::logging::init_tracing(&config.logging.level);
+    debug!(?config);
 
     let span = info_span!("init").entered();
     let (redis_pool, core_client) = tokio::try_join!(
@@ -53,7 +54,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Duration::from_millis(50)
         )
     )?;
-
     info!("All services initialized successfully");
     drop(span);
 
@@ -65,7 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         .without_v07_checks()
-        .route("/", get(routes::web::hello))
+        .layer(TraceLayer::new_for_http()) //todo: opts, feature flags
+        .route("/", get(web::web::hello))
         .route("/api/create", post(routes::create::create))
         .route("/api/delete", delete(routes::delete::delete))
         .route("/s/{code}", get(routes::redirect::redirect))

@@ -6,7 +6,7 @@ use sqlx::migrate::Migrator;
 use tokio::net::TcpListener;
 use tonic::service::Routes;
 use tower::ServiceBuilder;
-use tracing::info;
+use tracing::{debug, info, info_span};
 
 use crate::{grpc::LinkService, state::AppState};
 
@@ -20,14 +20,13 @@ static MIGRATOR: Migrator = sqlx::migrate!("../migrations/");
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // todo: tracing-sub
-    tracing_subscriber::fmt::init();
-
     let config: common::config::CoreConfig = common::config::AppConfig::load()
         .expect("Failed to load application config")
         .into();
-    dbg!(&config);
+    common::logging::init_tracing(&config.logging.level);
+    debug!(?config);
 
+    let span = info_span!("init").entered();
     let (db_pool, redis) = tokio::try_join!(
         async {
             let db_pool = db::connect(config.database.to_string().as_str())
@@ -53,6 +52,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Duration::from_millis(50),
         )
     )?;
+    info!("All services initialized successfully");
+    drop(span);
 
     let state = AppState { db_pool, redis };
 
