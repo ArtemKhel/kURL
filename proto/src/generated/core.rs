@@ -22,6 +22,11 @@ pub struct GetLinkResponse {
     #[prost(string, tag = "1")]
     pub target: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeleteLinkRequest {
+    #[prost(string, tag = "1")]
+    pub short_code: ::prost::alloc::string::String,
+}
 /// Generated client implementations.
 pub mod link_service_client {
     #![allow(
@@ -158,6 +163,27 @@ pub mod link_service_client {
             req.extensions_mut().insert(GrpcMethod::new("core.LinkService", "GetLink"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn delete_link(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DeleteLinkRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/core.LinkService/DeleteLink",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("core.LinkService", "DeleteLink"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -184,6 +210,10 @@ pub mod link_service_server {
             &self,
             request: tonic::Request<super::GetLinkRequest>,
         ) -> std::result::Result<tonic::Response<super::GetLinkResponse>, tonic::Status>;
+        async fn delete_link(
+            &self,
+            request: tonic::Request<super::DeleteLinkRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct LinkServiceServer<T> {
@@ -336,6 +366,51 @@ pub mod link_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetLinkSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/core.LinkService/DeleteLink" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteLinkSvc<T: LinkService>(pub Arc<T>);
+                    impl<
+                        T: LinkService,
+                    > tonic::server::UnaryService<super::DeleteLinkRequest>
+                    for DeleteLinkSvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteLinkRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as LinkService>::delete_link(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DeleteLinkSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

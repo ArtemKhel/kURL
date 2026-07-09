@@ -1,5 +1,5 @@
 [workspace]
-members = ["common", "core", "gateway", "proto"]
+members = ["analytics","common", "core", "gateway", "proto"]
 resolver = "3"
 
 

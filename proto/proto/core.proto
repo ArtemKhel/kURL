@@ -1,9 +1,12 @@
 syntax = "proto3";
 package core;
 
+import "google/protobuf/empty.proto";
+
 service LinkService {
   rpc CreateLink(CreateLinkRequest) returns (CreateLinkResponse);
   rpc GetLink(GetLinkRequest) returns (GetLinkResponse);
+  rpc DeleteLink(DeleteLinkRequest) returns (google.protobuf.Empty);
 }
 
 message CreateLinkRequest {
@@ -21,4 +24,8 @@ message GetLinkRequest {
 
 message GetLinkResponse {
   string target = 1;
+}
+
+message DeleteLinkRequest{
+  string short_code = 1;
 }

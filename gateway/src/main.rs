@@ -66,6 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/", get(routes::web::hello))
         .route("/api/create", post(routes::create::create))
         .route("/s/{code}", get(routes::redirect::redirect))
+        .fallback(routes::not_found)
         .with_state(state);
     let listener = TcpListener::bind(config.gateway.to_string()).await?;
     axum::serve(listener, app)
