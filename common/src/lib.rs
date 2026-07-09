@@ -1,8 +1,11 @@
 pub mod config;
+mod shutdown;
+pub mod logging;
+pub mod events;
 
 use std::time::Duration;
 
-use tokio::signal;
+pub use shutdown::shutdown;
 
 pub async fn connect_with_retry<F, Fut, T>(
     service_name: &str,
@@ -41,22 +44,4 @@ where
             }
         }
     }
-}
-pub async fn shutdown() {
-    let ctrl_c = async {
-        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
-    };
-
-    let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
-    };
-
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
-    }
-    println!("Shutting down...");
 }

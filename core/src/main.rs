@@ -15,7 +15,9 @@ pub mod db;
 mod grpc;
 mod state;
 
-static MIGRATOR: Migrator = sqlx::migrate!("./migrations/");
+//noinspection RsCompileErrorMacro
+static MIGRATOR: Migrator = sqlx::migrate!("../migrations/");
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // todo: tracing-sub
