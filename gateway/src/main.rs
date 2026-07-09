@@ -7,7 +7,7 @@ use std::{sync::Arc, time::Duration};
 
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use common;
 use proto::url::link_service_client::LinkServiceClient;
@@ -65,6 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .without_v07_checks()
         .route("/", get(routes::web::hello))
         .route("/api/create", post(routes::create::create))
+        .route("/api/delete", delete(routes::delete::delete))
         .route("/s/{code}", get(routes::redirect::redirect))
         .fallback(routes::not_found)
         .with_state(state);

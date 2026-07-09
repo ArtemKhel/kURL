@@ -18,7 +18,7 @@ pub async fn core_create_link(state: &SharedState, short_code: String, target: S
     response.map(|r| r.into_inner().short_code)
 }
 
-pub async fn core_delete_link(state: &SharedState, short_code: String) -> Result<(), Status> { 
+pub async fn core_delete_link(state: &SharedState, short_code: String) -> Result<(), Status> {
     let mut client = state.grpc_client.clone();
     let request = tonic::Request::new(DeleteLinkRequest { short_code });
     let response = client.delete_link(request).await;

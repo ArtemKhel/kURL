@@ -1,10 +1,7 @@
-use axum::{
-    http::StatusCode,
-    response::IntoResponse,
-};
+use axum::{http::StatusCode, response::IntoResponse};
 
 pub mod create;
-mod delete;
+pub mod delete;
 pub mod redirect;
 pub mod root;
 pub(crate) mod web;

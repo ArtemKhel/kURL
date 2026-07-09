@@ -1,5 +1,5 @@
 use proto::url::{
-    link_service_server, CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse,
+    CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse, link_service_server,
 };
 use tonic::{Request, Response, Status};
 use tracing::error;
