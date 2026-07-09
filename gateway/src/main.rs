@@ -12,7 +12,7 @@ use axum::{
 use common;
 use proto::url::link_service_client::LinkServiceClient;
 use tokio::net::TcpListener;
-use tracing::info;
+use tracing::{info, info_span, span};
 
 use crate::state::AppState;
 
@@ -23,6 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config: common::config::GatewayConfig = common::config::AppConfig::load()?.into();
     dbg!(&config);
 
+    let span = info_span!("init").entered();
     let (redis_pool, core_client) = tokio::try_join!(
         common::connect_with_retry(
             "Redis",
@@ -54,6 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     info!("All services initialized successfully");
+    drop(span);
 
     let state = Arc::new(AppState {
         config: config.clone(),
