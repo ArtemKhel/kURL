@@ -6,22 +6,29 @@ use axum::{
 use tonic::Code;
 use tracing::{info, warn};
 
-use crate::{cache::redis_query, grpc, state::SharedState};
+use crate::{
+    cache::{redis_query, send_click_event},
+    grpc,
+    state::SharedState,
+};
 
 pub async fn redirect(
     State(state): State<SharedState>,
     Path(short_code): Path<String>,
 ) -> Result<Redirect, StatusCode> {
-    // todo: unwraps
     if let Some(url) = redis_query(&state, short_code.clone()).await {
         info!(short_code = %short_code, "Cache hit");
+        send_click_event(&state, &short_code).await;
         return Ok(Redirect::permanent(&url));
     }
 
     info!(short_code = %short_code, "Cache miss");
     match grpc::core_get_link(&state, short_code.clone()).await {
         // todo: permanent with expire?
-        Ok(target) => Ok(Redirect::permanent(&target)),
+        Ok(target) => {
+            send_click_event(&state, &short_code).await;
+            Ok(Redirect::permanent(&target))
+        }
         Err(e) => match e.code() {
             Code::NotFound => {
                 info!(short_code = %short_code, "Short code not found");

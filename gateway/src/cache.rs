@@ -1,14 +1,36 @@
+use common::events::ClickEvent;
 use redis::AsyncTypedCommands;
+use tracing::{error, info, warn};
 
 use crate::state::SharedState;
 
-trait Cache {
-    // todo:
-    async fn query(state: &SharedState, short_code: String) -> Option<String> { None }
-}
+// trait Cache {
+//     // todo:
+//     async fn query(state: &SharedState, short_code: String) -> Option<String> { None }
+// }
 
 pub async fn redis_query(state: &SharedState, short_code: String) -> Option<String> {
     // todo: unwraps
     let mut redis_conn = state.redis.get().await.unwrap();
     redis_conn.get(short_code).await.unwrap()
+}
+
+pub async fn send_click_event(state: &SharedState, short_code: &str) {
+    let short_code = short_code.to_string();
+    let state = state.clone();
+    tokio::spawn(async move {
+        if let Err(e) = inner_send_click_event(state, short_code).await {
+            error!(error = %e, "Failed to send click event");
+        }
+    });
+}
+async fn inner_send_click_event(state: SharedState, short_code: String) -> Result<(), Box<dyn std::error::Error>> {
+    let click_event = ClickEvent {
+        short_code,
+        time: chrono::Utc::now(),
+    };
+    info!(?click_event, "Click event");
+    let mut redis_conn = state.redis.get().await?;
+    redis_conn.xadd("Clicks", "*", &(click_event.as_redis_args())).await?;
+    Ok(())
 }

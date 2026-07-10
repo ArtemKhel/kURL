@@ -20,6 +20,13 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 [[package]]
 name = "analytics"
 version = "0.1.0"
+dependencies = [
+ "deadpool-redis",
+ "redis",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "android_system_properties"
@@ -286,6 +293,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -700,6 +708,7 @@ version = "0.1.0"
 dependencies = [
  "askama",
  "axum",
+ "chrono",
  "common",
  "deadpool-redis",
  "proto",

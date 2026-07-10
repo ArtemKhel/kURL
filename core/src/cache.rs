@@ -1,10 +1,10 @@
 use redis::AsyncTypedCommands;
-use tracing::warn;
+use tracing::{error, warn};
 
 pub async fn insert_link(redis: deadpool_redis::Pool, short_code: String, target: String) {
     tokio::spawn(async move {
-        if let Err(err) = inner_insert_link(&redis, short_code, target).await {
-            warn!("Failed to cache link in Redis: {err}");
+        if let Err(e) = inner_insert_link(&redis, short_code, target).await {
+            warn!(error = %e, "Failed to cache link in Redis");
         }
     });
 }
@@ -21,13 +21,13 @@ async fn inner_insert_link(
 
 pub async fn delete_link(redis: deadpool_redis::Pool, short_code: String) {
     tokio::spawn(async move {
-        if let Err(e) = inner_delete_link(&redis, short_code).await {
-            warn!("Failed to remove link from Redis: {e}");
+        if let Err(e) = inner_delete_link(redis, short_code).await {
+            error!(error = %e, "Failed to remove link from Redis");
         }
     });
 }
 
-async fn inner_delete_link(redis: &deadpool_redis::Pool, short_code: String) -> Result<(), Box<dyn std::error::Error>> {
+async fn inner_delete_link(redis: deadpool_redis::Pool, short_code: String) -> Result<(), Box<dyn std::error::Error>> {
     let mut conn = redis.get().await?;
     conn.del(&short_code).await?;
     Ok(())
