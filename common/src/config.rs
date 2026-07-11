@@ -1,13 +1,16 @@
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    time::Duration,
+};
 
 use config::{Config, ConfigError, File};
-use serde::Deserialize;
-
+use serde::{Deserialize, Deserializer};
+use tracing::{error, info};
 //  SHARED CONFIGS
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct CacheConfig {
+pub struct RedisConfig {
     pub host: String,
     pub port: u16,
     pub ttl: u64,
@@ -40,7 +43,7 @@ pub struct ServiceAddress {
 }
 
 #[derive(Debug, Clone)]
-pub struct CacheAddress {
+pub struct RedisAddress {
     pub host: String,
     pub port: u16,
 }
@@ -61,15 +64,26 @@ pub struct CoreServiceConfig {
     pub port: u16,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct AnalyticsServiceConfig {
+    pub stream_name: String,
+    #[serde(rename = "summary_interval_secs", deserialize_with = "duration_from_secs")]
+    pub summary_interval: Duration,
+    #[serde(rename = "cleanup_interval_secs", deserialize_with = "duration_from_secs")]
+    pub cleanup_interval: Duration,
+}
+
 //  MASTER CONFIG
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
-    pub cache: CacheConfig,
+    pub redis: RedisConfig,
     pub database: DatabaseConfig,
     pub logging: LoggingConfig,
     pub gateway: GatewayServiceConfig,
     pub core: CoreServiceConfig,
+    pub analytics: AnalyticsServiceConfig,
 }
 
 //  SERVICE-SPECIFIC CONFIGS (what each service gets)
@@ -77,7 +91,7 @@ pub struct AppConfig {
 #[derive(Debug, Clone)]
 pub struct GatewayConfig {
     pub gateway: GatewayServiceConfig,
-    pub cache: ServiceAddress,
+    pub redis: ServiceAddress,
     pub core: ServiceAddress,
     pub logging: LoggingConfig,
 }
@@ -85,7 +99,15 @@ pub struct GatewayConfig {
 #[derive(Debug, Clone)]
 pub struct CoreConfig {
     pub core: CoreServiceConfig,
-    pub cache: CacheConfig,
+    pub redis: RedisConfig,
+    pub database: DatabaseConfig,
+    pub logging: LoggingConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct AnalyticsConfig {
+    pub analytics: AnalyticsServiceConfig,
+    pub redis: ServiceAddress,
     pub database: DatabaseConfig,
     pub logging: LoggingConfig,
 }
@@ -94,9 +116,9 @@ impl AppConfig {
     pub fn load() -> Result<Self, ConfigError> {
         let config = Config::builder()
             // Priority 1 (lowest): Defaults
-            .set_default("cache.host", "localhost")?
-            .set_default("cache.port", 6379)?
-            .set_default("cache.ttl", 3600)?
+            .set_default("redis.host", "localhost")?
+            .set_default("redis.port", 6379)?
+            .set_default("redis.ttl", 3600)?
             .set_default("database.host", "localhost")?
             .set_default("database.port", 5432)?
             .set_default("database.user", "postgres")?
@@ -107,14 +129,31 @@ impl AppConfig {
             .set_default("gateway.port", 3000)?
             .set_default("core.host", "localhost")?
             .set_default("core.port", 3001)?
+            .set_default("analytics.stream_name", "Events")?
+            .set_default("analytics.summary_interval_secs", 60)?
+            .set_default("analytics.cleanup_interval_secs", 3600)?
             // Priority 2: TOML file (if it exists)
             .add_source(File::with_name("config/config.toml").required(false))
             // Priority 3 (highest): Environment variables
             .add_source(config::Environment::with_prefix("APP").try_parsing(true).separator("_"))
             .build()?;
 
-        config.try_deserialize()
+        config
+            .try_deserialize()
+            .inspect(|config| info!(?config, "config loaded"))
+            .inspect_err(|error| error!(?error, "failed to load config"))
     }
+}
+
+pub fn load<T>() -> T
+where T: From<AppConfig> {
+    AppConfig::load().map(T::from).expect("Failed to load config")
+}
+
+fn duration_from_secs<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+where D: Deserializer<'de> {
+    let secs = u64::deserialize(deserializer)?;
+    Ok(Duration::from_secs(secs))
 }
 
 macro_rules! impl_display {
@@ -137,7 +176,7 @@ impl Display for ServiceAddress {
     }
 }
 
-impl_display!(CacheConfig, "redis://{}:{}", host, port);
+impl_display!(RedisConfig, "redis://{}:{}", host, port);
 impl_display!(GatewayServiceConfig, "{}:{}", host, port);
 impl_display!(CoreServiceConfig, "{}:{}", host, port);
 impl_display!(
@@ -151,30 +190,49 @@ impl_display!(
 );
 
 impl From<AppConfig> for GatewayConfig {
-    fn from(app_config: AppConfig) -> Self {
+    fn from(value: AppConfig) -> Self {
         GatewayConfig {
-            gateway: app_config.gateway,
-            cache: ServiceAddress {
+            gateway: value.gateway,
+            redis: ServiceAddress {
                 scheme: Some("redis".into()),
-                host: app_config.cache.host,
-                port: app_config.cache.port,
+                host: value.redis.host,
+                port: value.redis.port,
             },
             core: ServiceAddress {
                 scheme: Some("grpc".into()),
-                host: app_config.core.host,
-                port: app_config.core.port,
+                host: value.core.host,
+                port: value.core.port,
             },
-            logging: app_config.logging,
+            logging: value.logging,
         }
     }
 }
 impl From<AppConfig> for CoreConfig {
-    fn from(app_config: AppConfig) -> Self {
+    fn from(value: AppConfig) -> Self {
         CoreConfig {
-            core: app_config.core.clone(),
-            cache: app_config.cache.clone(),
-            database: app_config.database.clone(),
-            logging: app_config.logging.clone(),
+            core: value.core,
+            redis: value.redis,
+            database: value.database,
+            logging: value.logging,
+        }
+    }
+}
+
+impl From<AppConfig> for AnalyticsConfig {
+    fn from(value: AppConfig) -> Self {
+        AnalyticsConfig {
+            analytics: AnalyticsServiceConfig {
+                stream_name: value.analytics.stream_name,
+                summary_interval: value.analytics.summary_interval,
+                cleanup_interval: value.analytics.cleanup_interval,
+            },
+            redis: ServiceAddress {
+                scheme: Some("redis".into()),
+                host: value.redis.host,
+                port: value.redis.port,
+            },
+            logging: value.logging,
+            database: value.database,
         }
     }
 }

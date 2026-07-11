@@ -5,6 +5,7 @@ mod shutdown;
 
 use std::time::Duration;
 
+use anyhow::anyhow;
 pub use shutdown::shutdown;
 
 pub async fn connect_with_retry<F, Fut, T>(
@@ -12,7 +13,7 @@ pub async fn connect_with_retry<F, Fut, T>(
     mut f: F,
     max_retries: u32,
     initial_delay: Duration,
-) -> Result<T, Box<dyn std::error::Error>>
+) -> Result<T, anyhow::Error>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, Box<dyn std::error::Error>>>,
@@ -30,7 +31,7 @@ where
                 attempt += 1;
                 if attempt >= max_retries {
                     tracing::error!("{} failed after {} attempts: {}", service_name, attempt, e);
-                    return Err(format!("Failed to connect to {}", service_name).into());
+                    return Err(anyhow!("Failed to connect to {}", service_name));
                 }
                 tracing::warn!(
                     "{} attempt {} failed: {}. Retrying in {:?}...",

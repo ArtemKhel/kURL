@@ -1,7 +1,7 @@
-[cache]
+[redis]
 host = "127.0.0.1"
 port = 6379
-ttl = 3600
+ttl = 3600  # todo: is it used somewhere?
 
 [database]
 host = "127.0.0.1"
@@ -17,6 +17,12 @@ port = 3000
 [core]
 host = "127.0.0.1"
 port = 3001
+
+[analytics]
+stream_name = "Events"  # TODO: should be in redis?
+summary_interval_secs = 60
+cleanup_interval_secs = 3600
+
 
 [logging]
 level = "info"
