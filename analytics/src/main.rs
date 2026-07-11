@@ -4,6 +4,7 @@ pub mod event_consumer;
 
 use tracing::{info, };
 use common::config::AnalyticsConfig;
+use crate::event_consumer::EventConsumer;
 
 type Config = AnalyticsConfig;
 
@@ -14,6 +15,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!(?config);
 
     let (db, redis) = init::init(&config).await?;
+
+    let event_consumer = EventConsumer::new(redis, db, config.clone());
+    event_consumer.run().await?;
 
     Ok(())
 }

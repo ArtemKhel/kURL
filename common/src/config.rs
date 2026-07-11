@@ -13,6 +13,13 @@ use tracing::{error, info};
 pub struct RedisConfig {
     pub host: String,
     pub port: u16,
+    pub streams: Streams,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct Streams {
+    pub events: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -66,10 +73,9 @@ pub struct CoreServiceConfig {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct AnalyticsServiceConfig {
-    #[serde(rename = "summary_interval_secs", deserialize_with = "duration_from_secs")]
-    pub summary_interval: Duration,
-    #[serde(rename = "cleanup_interval_secs", deserialize_with = "duration_from_secs")]
-    pub cleanup_interval: Duration,
+    pub read_batch_size: usize,
+    #[serde(deserialize_with = "duration_from_secs")]
+    pub read_block_secs: Duration,
 }
 
 //  MASTER CONFIG
@@ -105,7 +111,7 @@ pub struct CoreConfig {
 #[derive(Debug, Clone)]
 pub struct AnalyticsConfig {
     pub analytics: AnalyticsServiceConfig,
-    pub redis: ServiceAddress,
+    pub redis: RedisConfig,
     pub database: DatabaseConfig,
     pub logging: LoggingConfig,
 }
@@ -126,9 +132,8 @@ impl AppConfig {
             .set_default("gateway.port", 3000)?
             .set_default("core.host", "localhost")?
             .set_default("core.port", 3001)?
-            .set_default("analytics.stream_name", "Events")?
-            .set_default("analytics.summary_interval_secs", 60)?
-            .set_default("analytics.cleanup_interval_secs", 3600)?
+            .set_default("analytics.read_batch_size", 100)?
+            .set_default("analytics.read_block_secs", 5)?
             // Priority 2: TOML file (if it exists)
             .add_source(File::with_name("config/config.toml").required(false))
             // Priority 3 (highest): Environment variables
@@ -219,14 +224,15 @@ impl From<AppConfig> for AnalyticsConfig {
     fn from(value: AppConfig) -> Self {
         AnalyticsConfig {
             analytics: AnalyticsServiceConfig {
-                summary_interval: value.analytics.summary_interval,
-                cleanup_interval: value.analytics.cleanup_interval,
+                read_batch_size: value.analytics.read_batch_size,
+                read_block_secs: value.analytics.read_block_secs,
             },
-            redis: ServiceAddress {
-                scheme: Some("redis".into()),
-                host: value.redis.host,
-                port: value.redis.port,
-            },
+            // redis: ServiceAddress {
+            //     scheme: Some("redis".into()),
+            //     host: value.redis.host,
+            //     port: value.redis.port,
+            // },
+            redis: value.redis,
             logging: value.logging,
             database: value.database,
         }
