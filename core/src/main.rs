@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         common::connect_with_retry(
             "Redis",
             || {
-                let cache_url = config.cache.to_string();
+                let cache_url = config.redis.to_string();
                 async move {
                     let cfg = deadpool_redis::Config::from_url(cache_url);
                     let pool = cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1))?;

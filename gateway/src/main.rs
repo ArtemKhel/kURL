@@ -22,14 +22,14 @@ use crate::state::AppState;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config: common::config::GatewayConfig = common::config::AppConfig::load()?.into();
     common::logging::init_tracing(&config.logging.level);
-    debug!(?config);
+    info!(?config);
 
     let span = info_span!("init").entered();
     let (redis_pool, core_client) = tokio::try_join!(
         common::connect_with_retry(
             "Redis",
             || {
-                let cache_url = config.cache.to_string();
+                let cache_url = config.redis.to_string();
                 async move {
                     let cfg = deadpool_redis::Config::from_url(cache_url);
                     let pool = cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1))?;

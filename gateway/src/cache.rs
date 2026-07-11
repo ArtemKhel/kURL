@@ -31,6 +31,11 @@ async fn inner_send_click_event(state: SharedState, short_code: String) -> Resul
     };
     info!(?click_event, "Click event");
     let mut redis_conn = state.redis.get().await?;
-    redis_conn.xadd("Clicks", "*", &(click_event.as_redis_args())).await?;
+    redis_conn
+        .xadd("Clicks", "*", &[(
+            "event".to_string(),
+            serde_json::to_string(&click_event).unwrap(),
+        )])
+        .await?;
     Ok(())
 }
