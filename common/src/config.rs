@@ -13,7 +13,6 @@ use tracing::{error, info};
 pub struct RedisConfig {
     pub host: String,
     pub port: u16,
-    pub ttl: u64,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -67,7 +66,6 @@ pub struct CoreServiceConfig {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct AnalyticsServiceConfig {
-    pub stream_name: String,
     #[serde(rename = "summary_interval_secs", deserialize_with = "duration_from_secs")]
     pub summary_interval: Duration,
     #[serde(rename = "cleanup_interval_secs", deserialize_with = "duration_from_secs")]
@@ -118,7 +116,6 @@ impl AppConfig {
             // Priority 1 (lowest): Defaults
             .set_default("redis.host", "localhost")?
             .set_default("redis.port", 6379)?
-            .set_default("redis.ttl", 3600)?
             .set_default("database.host", "localhost")?
             .set_default("database.port", 5432)?
             .set_default("database.user", "postgres")?
@@ -222,7 +219,6 @@ impl From<AppConfig> for AnalyticsConfig {
     fn from(value: AppConfig) -> Self {
         AnalyticsConfig {
             analytics: AnalyticsServiceConfig {
-                stream_name: value.analytics.stream_name,
                 summary_interval: value.analytics.summary_interval,
                 cleanup_interval: value.analytics.cleanup_interval,
             },

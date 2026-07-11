@@ -1,7 +1,9 @@
 [redis]
 host = "127.0.0.1"
 port = 6379
-ttl = 3600  # todo: is it used somewhere?
+
+[redis.streams]
+events = "Events"
 
 [database]
 host = "127.0.0.1"
@@ -19,9 +21,10 @@ host = "127.0.0.1"
 port = 3001
 
 [analytics]
-stream_name = "Events"  # TODO: should be in redis?
 summary_interval_secs = 60
 cleanup_interval_secs = 3600
+read_batch_size = 1000
+read_block_secs = 5
 
 
 [logging]
