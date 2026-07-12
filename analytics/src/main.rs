@@ -1,6 +1,7 @@
 pub mod init;
 pub mod db;
 pub mod event_consumer;
+pub mod redis_stats;
 
 use tracing::{info, };
 use common::config::AnalyticsConfig;

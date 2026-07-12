@@ -3,5 +3,5 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClickEvent {
     pub short_code: String,
-    pub time: chrono::DateTime<chrono::Utc>,
+    pub at: chrono::DateTime<chrono::Utc>,
 }

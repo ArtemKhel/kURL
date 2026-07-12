@@ -7,6 +7,8 @@ use redis::{
 };
 use tracing::{debug, error, info, instrument, warn};
 
+use crate::redis_stats::RedisStats;
+
 const CONSUMER_GROUP: &str = "Analytics";
 const CONSUMER_NAME: &str = "worker-0";
 
@@ -23,15 +25,20 @@ impl EventConsumer {
 
     #[instrument(skip(self))]
     pub async fn run(self) -> anyhow::Result<()> {
+        // todo: on restart?
+
         self.ensure_consumer_group().await?;
         self.spawn_persistence_task().await;
 
         // TODO: what if it can't keep up?
+        let opts = StreamReadOptions::default()
+            .group(CONSUMER_GROUP, CONSUMER_NAME)
+            .count(self.config.analytics.read_batch_size);
+
+        let stats_counter = RedisStats::new(self.config.clone());
+
         loop {
             let mut conn = self.redis.get().await?;
-            let opts = StreamReadOptions::default()
-                .group(CONSUMER_GROUP, CONSUMER_NAME)
-                .count(self.config.analytics.read_batch_size);
 
             let reply = conn
                 .xread_options(&[&self.config.redis.streams.events], &[">"], &opts)
@@ -50,9 +57,10 @@ impl EventConsumer {
                     continue;
                 }
             };
+
             for key in reply.keys {
                 for entry in key.ids {
-                    self.process_entry(&mut conn, &entry).await;
+                    self.process_entry(&mut conn, &stats_counter, &entry).await;
                 }
             }
 
@@ -63,7 +71,7 @@ impl EventConsumer {
         }
     }
 
-    async fn process_entry(&self, conn: &mut deadpool_redis::Connection, entry: &StreamId) {
+    async fn process_entry(&self, conn: &mut deadpool_redis::Connection, stats_counter: &RedisStats, entry: &StreamId) {
         let event: Option<ClickEvent> = entry.map.get("event").and_then(|v| match v {
             redis::Value::BulkString(bytes) => serde_json::from_slice(bytes)
                 .map_err(|e| error!(error = %e, "Error deserializing ClickEvent from BulkString"))
@@ -79,10 +87,14 @@ impl EventConsumer {
 
         if let Some(event) = event {
             // todo: something
-            dbg!(&event);
+            if let Err(e) = stats_counter.record_click(conn, &event).await {
+                error!(error = %e, "Error recording ClickEvent from stats_counter");
+            }
         }
 
-        let x = conn
+        // todo: batch ack
+        // prob should check status code
+        let _ = conn
             .xack_del(
                 &self.config.redis.streams.events,
                 CONSUMER_GROUP,
@@ -90,8 +102,7 @@ impl EventConsumer {
                 StreamDeletionPolicy::Acked,
             )
             .await
-            .map_err(|e| error!(error = %e, "Error acknowledging ClickEvent in Redis stream"));
-        info!(?x, "acked");
+            .inspect_err(|e| error!(error = %e, "Error acknowledging ClickEvent in Redis stream"));
     }
 
     async fn spawn_persistence_task(&self) {

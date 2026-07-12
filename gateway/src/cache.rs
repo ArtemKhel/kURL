@@ -27,7 +27,7 @@ pub async fn send_click_event(state: &SharedState, short_code: &str) {
 async fn inner_send_click_event(state: SharedState, short_code: String) -> Result<(), Box<dyn std::error::Error>> {
     let click_event = ClickEvent {
         short_code,
-        time: chrono::Utc::now(),
+        at: chrono::Utc::now(),
     };
     info!(?click_event, "Click event");
     let mut redis_conn = state.redis.get().await?;
