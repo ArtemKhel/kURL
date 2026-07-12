@@ -2,12 +2,11 @@ use std::time::Duration;
 
 use common::events::ClickEvent;
 use redis::{
-    streams::{StreamReadOptions, StreamReadReply}, AsyncTypedCommands,
-    RedisResult,
+    streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
+    AsyncTypedCommands,
 };
 use tracing::{debug, error, info, instrument, warn};
 
-const STREAM_NAME: &str = "Events";
 const CONSUMER_GROUP: &str = "Analytics";
 const CONSUMER_NAME: &str = "worker-0";
 
@@ -25,15 +24,14 @@ impl EventConsumer {
     #[instrument(skip(self))]
     pub async fn run(self) -> anyhow::Result<()> {
         self.ensure_consumer_group().await?;
-
         self.spawn_persistence_task().await;
 
+        // TODO: what if it can't keep up?
         loop {
             let mut conn = self.redis.get().await?;
             let opts = StreamReadOptions::default()
                 .group(CONSUMER_GROUP, CONSUMER_NAME)
-                .count(self.config.analytics.read_batch_size)
-                .block(self.config.analytics.read_block_secs.as_millis() as usize); // todo: instead of blocking, it just times out. same on plain redis conn without pool
+                .count(self.config.analytics.read_batch_size);
 
             let reply = conn
                 .xread_options(&[&self.config.redis.streams.events], &[">"], &opts)
@@ -43,29 +41,57 @@ impl EventConsumer {
                 Ok(Some(r)) => r,
                 Ok(None) => {
                     debug!("No new events in Redis stream, continuing");
+                    tokio::time::sleep(self.config.analytics.read_block_secs).await;
                     continue;
                 }
                 Err(e) => {
                     warn!(error = %e, "Error reading from Redis stream, retrying");
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    tokio::time::sleep(self.config.analytics.read_block_secs).await;
                     continue;
                 }
             };
             for key in reply.keys {
                 for entry in key.ids {
-                    let id = entry.id;
-                    let event = entry
-                        .map
-                        .get("event")
-                        .ok_or_else(|| anyhow::anyhow!("Missing 'event' field in stream entry"))
-                        .and_then(|e| redis::from_redis_value_ref::<String>(e).map_err(Into::into))
-                        .and_then(|s| serde_json::from_str::<ClickEvent>(&s).map_err(Into::into))?;
-
-                    dbg!(&id, &event);
+                    self.process_entry(&mut conn, &entry).await;
                 }
             }
+
+            // Current version of `deadpool-redis` doesn't allow to override `DEFAULT_RESPONSE_TIMEOUT`
+            // in `redis::AsyncConnectionOptions` for an underlying client
+            // making blocking for longer than 0.5s impossible
+            tokio::time::sleep(self.config.analytics.read_block_secs).await;
         }
-        Ok(())
+    }
+
+    async fn process_entry(&self, conn: &mut deadpool_redis::Connection, entry: &StreamId) {
+        let event: Option<ClickEvent> = entry.map.get("event").and_then(|v| match v {
+            redis::Value::BulkString(bytes) => serde_json::from_slice(bytes)
+                .map_err(|e| error!(error = %e, "Error deserializing ClickEvent from BulkString"))
+                .ok(),
+            redis::Value::SimpleString(s) => serde_json::from_str(s)
+                .map_err(|e| error!(error = %e, "Error deserializing ClickEvent from SimpleString"))
+                .ok(),
+            _ => {
+                warn!(value = ?v, "Unexpected value in ClickEvent entry");
+                None
+            }
+        });
+
+        if let Some(event) = event {
+            // todo: something
+            dbg!(&event);
+        }
+
+        let x = conn
+            .xack_del(
+                &self.config.redis.streams.events,
+                CONSUMER_GROUP,
+                &[entry.id.clone()],
+                StreamDeletionPolicy::Acked,
+            )
+            .await
+            .map_err(|e| error!(error = %e, "Error acknowledging ClickEvent in Redis stream"));
+        info!(?x, "acked");
     }
 
     async fn spawn_persistence_task(&self) {
