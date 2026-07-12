@@ -86,7 +86,7 @@ impl EventConsumer {
         });
 
         if let Some(event) = event {
-            // todo: something
+            // todo: do something with the event
             if let Err(e) = stats_counter.record_click(conn, &event).await {
                 error!(error = %e, "Error recording ClickEvent from stats_counter");
             }
