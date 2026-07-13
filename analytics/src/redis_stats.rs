@@ -1,14 +1,12 @@
-use common::events::ClickEvent;
+use common::{events::ClickEvent, redis_keys::RedisKeys};
 use redis::RedisResult;
 use tracing::instrument;
-use common::redis_keys::RedisKeys;
 
 pub struct RedisStats {
     config: crate::Config,
 }
 
 impl RedisStats {
-
     pub fn new(config: crate::Config) -> Self { Self { config } }
 
     #[instrument(skip(self, conn))]

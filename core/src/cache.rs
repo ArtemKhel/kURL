@@ -1,6 +1,6 @@
+use common::redis_keys::RedisKeys;
 use redis::AsyncTypedCommands;
 use tracing::{error, warn};
-use common::redis_keys::RedisKeys;
 
 pub async fn insert_link(redis: deadpool_redis::Pool, short_code: String, target: String) {
     tokio::spawn(async move {

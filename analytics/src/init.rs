@@ -4,7 +4,9 @@ use common::config::AnalyticsConfig;
 use tracing::{info, instrument};
 
 #[instrument(skip_all)]
-pub async fn init(config: &AnalyticsConfig) -> Result<(sqlx::PgPool, deadpool_redis::Pool), Box<dyn std::error::Error>> {
+pub async fn init(
+    config: &AnalyticsConfig,
+) -> Result<(sqlx::PgPool, deadpool_redis::Pool), Box<dyn std::error::Error>> {
     // TODO: copypaste
     let (db_pool, redis) = tokio::try_join!(
         async {

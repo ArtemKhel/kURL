@@ -7,8 +7,8 @@ pub mod web;
 use std::{sync::Arc, time::Duration};
 
 use axum::{
-    routing::{delete, get, post},
     Router,
+    routing::{delete, get, post},
 };
 use common;
 use proto::core::link_service_client::LinkServiceClient;

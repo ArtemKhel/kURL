@@ -1,7 +1,7 @@
-use common::events::ClickEvent;
+use common::{events::ClickEvent, redis_keys::RedisKeys};
 use redis::AsyncTypedCommands;
 use tracing::{error, info, warn};
-use common::redis_keys::RedisKeys;
+
 use crate::state::SharedState;
 
 // trait Cache {

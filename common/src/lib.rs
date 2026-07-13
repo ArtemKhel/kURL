@@ -1,8 +1,8 @@
 pub mod config;
 pub mod events;
 pub mod logging;
-mod shutdown;
 pub mod redis_keys;
+mod shutdown;
 
 use std::time::Duration;
 
