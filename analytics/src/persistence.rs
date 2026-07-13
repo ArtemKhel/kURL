@@ -1,7 +1,9 @@
-use chrono::NaiveDate;
+use chrono::{Duration, NaiveDate};
+use common::redis_keys::RedisKeys;
 use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
+use tracing::error;
 
-use crate::redis_keys::RedisKeys;
+use crate::db;
 
 pub struct Persistence {
     db: sqlx::PgPool,
@@ -11,28 +13,33 @@ pub struct Persistence {
 impl Persistence {
     pub fn new(db: sqlx::PgPool, redis: deadpool_redis::Pool) -> Self { Self { db, redis } }
 
-    // TODO: ret type, consts, unwraps
+    // TODO: ret type, consts, unwraps, err handling
     pub async fn snapshot_and_trim(&self) -> anyhow::Result<()> {
         let now = chrono::Utc::now();
-        let stale_cutoff = (now - chrono::Duration::weeks(1) - chrono::Duration::days(1)).date_naive();
+        let stale_cutoff = (now - Duration::weeks(1) - Duration::days(1)).date_naive();
 
-        let global_key = RedisKeys::global_key();
-        let link_keys = RedisKeys::link_key("*");
-        let link_prefix = link_keys.strip_suffix("*").unwrap();
+        let all_stats_keys = RedisKeys::stats_key("*");
+        let global_key = RedisKeys::global_stats_key();
+        let link_prefix = RedisKeys::link_stats_key("");
 
         let mut stale = vec![];
         let mut link_short_codes = vec![];
         let mut link_dates = vec![];
         let mut link_clicks = vec![];
+        let mut global_dates = vec![];
+        let mut global_clicks = vec![];
 
         let mut conn = self.redis.get().await?;
         let mut conn_ = self.redis.get().await?;
 
-        let scan_opts = ScanOptions::default().with_count(100).with_pattern(&link_keys);
+        let scan_opts = ScanOptions::default().with_count(100).with_pattern(&all_stats_keys);
         let mut iter: AsyncIter<String> = conn.scan_options(scan_opts).await?;
         while let Some(key) = iter.next_item().await {
-            let key = key?;
-            let short_code = key.strip_prefix(&link_prefix).unwrap();
+            let Ok(key) = key else {
+                error!(?key);
+                continue;
+            };
+            let short_code = (key != global_key).then(|| key.strip_prefix(&link_prefix).unwrap());
 
             let map = conn_.hgetall(&key).await?;
             for (date_str, clicks) in map {
@@ -42,24 +49,22 @@ impl Persistence {
                 if date < stale_cutoff {
                     stale.push(date_str);
                 } else {
-                    link_short_codes.push(short_code.to_string());
-                    link_clicks.push(clicks);
-                    link_dates.push(date);
+                    if let Some(short_code) = short_code {
+                        link_short_codes.push(short_code.to_string());
+                        link_clicks.push(clicks);
+                        link_dates.push(date);
+                    } else {
+                        global_clicks.push(clicks);
+                        global_dates.push(date);
+                    }
                 }
             }
+
+            let _ = conn_.hdel(key, &stale).await;
         }
 
-        let res = sqlx::query!(
-            r#"
-            insert into link_daily_clicks (short_code, day, clicks)
-            select * from unnest($1::text[], $2::date[], $3::bigint[])
-            on conflict (short_code, day) do update set clicks = excluded.clicks
-            "#,
-            &link_short_codes,
-            &link_dates,
-            &link_clicks
-        )
-        .execute(&self.db).await?;
+        let _ = db::update_link_daily_clicks(&self.db, &link_short_codes, &link_dates, &link_clicks).await;
+        let _ = db::update_global_daily_clicks(&self.db, &global_dates, &global_clicks).await;
 
         Ok(())
     }

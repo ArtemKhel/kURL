@@ -1,7 +1,7 @@
 use common::events::ClickEvent;
 use redis::AsyncTypedCommands;
 use tracing::{error, info, warn};
-
+use common::redis_keys::RedisKeys;
 use crate::state::SharedState;
 
 // trait Cache {
@@ -12,7 +12,7 @@ use crate::state::SharedState;
 pub async fn redis_query(state: &SharedState, short_code: String) -> Option<String> {
     // todo: unwraps
     let mut redis_conn = state.redis.get().await.unwrap();
-    redis_conn.get(short_code).await.unwrap()
+    redis_conn.get(RedisKeys::link_cache_key(&short_code)).await.unwrap()
 }
 
 pub async fn send_click_event(state: &SharedState, short_code: &str) {

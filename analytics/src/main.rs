@@ -3,7 +3,6 @@ pub mod db;
 pub mod event_consumer;
 pub mod redis_stats;
 pub mod persistence;
-pub mod redis_keys;
 
 use tracing::{info, };
 use common::config::AnalyticsConfig;
@@ -22,10 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let event_consumer = EventConsumer::new(redis.clone(), db.clone(), config.clone());
 
-    tokio::spawn(async move {
-        event_consumer.run().await
-    });
-    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+    // event_consumer.run().await?;
     let pers = Persistence::new(db.clone(), redis.clone());
     pers.snapshot_and_trim().await?;
 
