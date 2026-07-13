@@ -11,7 +11,7 @@ use axum::{
     Router,
 };
 use common;
-use proto::url::link_service_client::LinkServiceClient;
+use proto::core::link_service_client::LinkServiceClient;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, info, info_span};

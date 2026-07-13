@@ -3,6 +3,7 @@ pub mod db;
 pub mod event_consumer;
 pub mod redis_stats;
 pub mod persistence;
+pub mod grpc;
 
 use tracing::{info, };
 use common::config::AnalyticsConfig;

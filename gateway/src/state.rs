@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use common::config::GatewayConfig;
-use proto::url::link_service_client::LinkServiceClient;
+use proto::core::link_service_client::LinkServiceClient;
 use tonic::transport::Channel;
 
 #[derive(Debug)]

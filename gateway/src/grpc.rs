@@ -1,4 +1,4 @@
-use proto::url::{CreateLinkRequest, DeleteLinkRequest, GetLinkRequest};
+use proto::core::{CreateLinkRequest, DeleteLinkRequest, GetLinkRequest};
 use tonic::Status;
 
 use crate::state::SharedState;

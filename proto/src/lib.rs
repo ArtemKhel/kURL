@@ -1,4 +1,6 @@
-pub mod url {
-    // tonic::include_proto!("core");
-    include!("./generated/core.rs");
+pub mod core {
+    include!("generated/core.rs");
+}
+pub mod analytics {
+    include!("generated/analytics.rs");
 }

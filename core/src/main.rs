@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, time::Duration};
 
 use axum::routing::get;
-use proto::url::link_service_server::LinkServiceServer;
+use proto::core::link_service_server::LinkServiceServer;
 use sqlx::migrate::Migrator;
 use tokio::net::TcpListener;
 use tonic::service::Routes;

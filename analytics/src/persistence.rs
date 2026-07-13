@@ -63,6 +63,7 @@ impl Persistence {
             let _ = conn_.hdel(key, &stale).await;
         }
 
+        // dbg!(&link_short_codes,&link_dates,&link_clicks,&global_dates,&global_clicks,&stale,);
         let _ = db::update_link_daily_clicks(&self.db, &link_short_codes, &link_dates, &link_clicks).await;
         let _ = db::update_global_daily_clicks(&self.db, &global_dates, &global_clicks).await;
 

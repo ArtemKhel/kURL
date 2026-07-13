@@ -1,4 +1,4 @@
-use proto::url::{
+use proto::core::{
     CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse, link_service_server,
 };
 use tonic::{Request, Response, Status};
