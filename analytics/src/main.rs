@@ -1,20 +1,21 @@
-pub mod init;
+pub mod click_counter;
 pub mod db;
 pub mod event_consumer;
-pub mod redis_stats;
-pub mod persistence;
 pub mod grpc;
+pub mod init;
+pub mod redis_persistence;
+pub mod redis_stats;
 
-use tracing::{info, };
 use common::config::AnalyticsConfig;
-use crate::event_consumer::EventConsumer;
-use crate::persistence::Persistence;
+use tracing::info;
+
+use crate::{event_consumer::EventConsumer, redis_persistence::Persistence};
 
 type Config = AnalyticsConfig;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config= common::config::load::<AnalyticsConfig>();
+    let config = common::config::load::<AnalyticsConfig>();
     common::logging::init_tracing(&config.logging.level);
     info!(?config);
 
@@ -22,9 +23,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let event_consumer = EventConsumer::new(redis.clone(), db.clone(), config.clone());
 
-    // event_consumer.run().await?;
-    let pers = Persistence::new(db.clone(), redis.clone());
-    pers.snapshot_and_trim().await?;
+    event_consumer.run().await?;
+    // let pers = Persistence::new(db.clone(), redis.clone());
+    // pers.snapshot_and_trim().await?;
 
     Ok(())
 }

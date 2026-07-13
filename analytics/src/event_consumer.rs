@@ -2,11 +2,12 @@ use std::time::Duration;
 
 use common::events::ClickEvent;
 use redis::{
-    streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
     AsyncTypedCommands,
+    streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
 };
 use tracing::{debug, error, info, instrument, warn};
-
+use crate::click_counter::ClickCounter;
+use crate::redis_persistence::Persistence;
 use crate::redis_stats::RedisStats;
 
 const CONSUMER_GROUP: &str = "Analytics";
@@ -16,11 +17,15 @@ pub struct EventConsumer {
     redis: deadpool_redis::Pool,
     db: sqlx::PgPool,
     config: crate::Config,
+    click_counter: ClickCounter,
+    redis_stats: RedisStats,
 }
 
 impl EventConsumer {
     pub fn new(redis: deadpool_redis::Pool, db: sqlx::PgPool, config: crate::Config) -> Self {
-        Self { redis, db, config }
+        let click_counter = ClickCounter::new(db.clone());
+        let redis_stats = RedisStats::new(config.clone());
+        Self { redis, db, config, click_counter, redis_stats}
     }
 
     #[instrument(skip(self))]
@@ -30,12 +35,15 @@ impl EventConsumer {
         self.ensure_consumer_group().await?;
         self.spawn_persistence_task().await;
 
-        // TODO: what if it can't keep up?
+        Persistence::spawn(self.db.clone(), self.redis.clone());
+
+        // Current version of `deadpool-redis` doesn't allow to override `DEFAULT_RESPONSE_TIMEOUT`
+        // in `redis::AsyncConnectionOptions` for an underlying client
+        // making blocking for longer than 0.5s impossible
         let opts = StreamReadOptions::default()
             .group(CONSUMER_GROUP, CONSUMER_NAME)
-            .count(self.config.analytics.read_batch_size);
-
-        let stats_counter = RedisStats::new(self.config.clone());
+            .count(self.config.analytics.read_batch_size)
+            .block(250);
 
         loop {
             let mut conn = self.redis.get().await?;
@@ -48,30 +56,23 @@ impl EventConsumer {
                 Ok(Some(r)) => r,
                 Ok(None) => {
                     debug!("No new events in Redis stream, continuing");
-                    tokio::time::sleep(self.config.analytics.read_block_secs).await;
                     continue;
                 }
                 Err(e) => {
                     warn!(error = %e, "Error reading from Redis stream, retrying");
-                    tokio::time::sleep(self.config.analytics.read_block_secs).await;
                     continue;
                 }
             };
 
             for key in reply.keys {
                 for entry in key.ids {
-                    self.process_entry(&mut conn, &stats_counter, &entry).await;
+                    self.process_entry(&mut conn, &entry).await;
                 }
             }
-
-            // Current version of `deadpool-redis` doesn't allow to override `DEFAULT_RESPONSE_TIMEOUT`
-            // in `redis::AsyncConnectionOptions` for an underlying client
-            // making blocking for longer than 0.5s impossible
-            tokio::time::sleep(self.config.analytics.read_block_secs).await;
         }
     }
 
-    async fn process_entry(&self, conn: &mut deadpool_redis::Connection, stats_counter: &RedisStats, entry: &StreamId) {
+    async fn process_entry(&self, conn: &mut deadpool_redis::Connection, entry: &StreamId) {
         let event: Option<ClickEvent> = entry.map.get("event").and_then(|v| match v {
             redis::Value::BulkString(bytes) => serde_json::from_slice(bytes)
                 .map_err(|e| error!(error = %e, "Error deserializing ClickEvent from BulkString"))
@@ -87,9 +88,10 @@ impl EventConsumer {
 
         if let Some(event) = event {
             // todo: do something with the event
-            if let Err(e) = stats_counter.record_click(conn, &event).await {
+            if let Err(e) = self.redis_stats.record_click(conn, &event).await {
                 error!(error = %e, "Error recording ClickEvent from stats_counter");
             }
+            self.click_counter.notify(event)
         }
 
         // todo: batch ack

@@ -1,6 +1,7 @@
-use chrono::{Duration, NaiveDate};
-use common::redis_keys::RedisKeys;
+use chrono::NaiveDate;
+use common::{events::ClickEvent, redis_keys::RedisKeys};
 use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::error;
 
 use crate::db;
@@ -11,12 +12,25 @@ pub struct Persistence {
 }
 
 impl Persistence {
-    pub fn new(db: sqlx::PgPool, redis: deadpool_redis::Pool) -> Self { Self { db, redis } }
+    fn new(db: sqlx::PgPool, redis: deadpool_redis::Pool) -> Self { Self { db, redis } }
+
+    pub fn spawn(db: sqlx::PgPool, redis: deadpool_redis::Pool) -> () {
+        tokio::spawn(async move {
+            let persistence = Persistence::new(db, redis);
+            let mut ticker = tokio::time::interval(core::time::Duration::from_secs(60));
+            loop {
+                ticker.tick().await;
+                if let Err(e) = persistence.snapshot_and_trim().await {
+                    error!(error = %e, "snapshot_and_trim failed");
+                }
+            }
+        });
+    }
 
     // TODO: ret type, consts, unwraps, err handling
     pub async fn snapshot_and_trim(&self) -> anyhow::Result<()> {
         let now = chrono::Utc::now();
-        let stale_cutoff = (now - Duration::weeks(1) - Duration::days(1)).date_naive();
+        let stale_cutoff = (now - chrono::Duration::weeks(1) - chrono::Duration::days(1)).date_naive();
 
         let all_stats_keys = RedisKeys::stats_key("*");
         let global_key = RedisKeys::global_stats_key();

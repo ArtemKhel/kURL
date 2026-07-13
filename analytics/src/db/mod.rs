@@ -55,3 +55,41 @@ pub async fn update_global_daily_clicks(
     .inspect_err(|e| error!(error=?e, "failed to execute query"))
     .map(|_| ())
 }
+
+pub async fn update_link_total_clicks(
+    db: &sqlx::PgPool,
+    short_codes: &[String],
+    click_counts: &[i64],
+    click_ats: &[chrono::DateTime<chrono::Utc>],
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        update links as l
+        set click_count = l.click_count + d.click_count,
+            last_clicked_at = greatest(l.last_clicked_at, d.last_clicked_at)
+        from unnest($1::text[], $2::bigint[], $3::timestamptz[]) as d(short_code, click_count, last_clicked_at)
+        where l.short_code = d.short_code
+        "#,
+        short_codes,
+        click_counts,
+        click_ats
+    )
+    .execute(db)
+    .await
+    .inspect_err(|e| error!(error=?e, "failed to execute query"))
+    .map(|_| ())
+}
+
+pub async fn update_total_clicks(db: &sqlx::PgPool, count: i64) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        update analytics_global as g
+        set total_clicks = g.total_clicks + $1
+        "#,
+        count
+    )
+    .execute(db)
+    .await
+    .inspect_err(|e| error!(error=?e, "failed to execute query"))
+    .map(|_| ())
+}
