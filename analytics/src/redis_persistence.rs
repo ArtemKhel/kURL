@@ -6,6 +6,9 @@ use tracing::{error, info};
 
 use crate::db;
 
+// todo: from config
+const FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
+
 pub struct Persistence {
     db: sqlx::PgPool,
     redis: deadpool_redis::Pool,
@@ -22,15 +25,16 @@ impl Persistence {
     ) -> () {
         task_tracker.spawn(async move {
             let persistence = Persistence::new(db, redis);
-            let mut ticker = tokio::time::interval(core::time::Duration::from_secs(60));
+            let mut ticker = tokio::time::interval(FLUSH_INTERVAL);
             loop {
                 tokio::select! {
                     _ = shutdown.cancelled() => {
-                        info!("Shutting down");
+                        info!("Shutdown requested, snapshotting redis streams to DB");
                         if let Err(e) = persistence.snapshot_and_trim().await {
                             error!(error = %e, "snapshot_and_trim failed");
                         }
                         info!("Shutdown complete");
+                        return
                     },
                     _ = ticker.tick() => {
                         if let Err(e) = persistence.snapshot_and_trim().await {

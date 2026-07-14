@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use chrono::{DateTime, Utc};
 use common::events::ClickEvent;
+use itertools::Itertools;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio_util::sync::CancellationToken;
-use tokio_util::task::TaskTracker;
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{error, info, instrument};
 
 use crate::db;
@@ -14,15 +14,17 @@ pub struct ClickCounter {
 }
 
 impl ClickCounter {
-    pub fn new(db: sqlx::PgPool) -> ClickCounter {
+    pub fn spawn(
+        config: &crate::Config,
+        db: sqlx::PgPool,
+        task_tracker: &TaskTracker,
+        shutdown: CancellationToken,
+    ) -> ClickCounter {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<ClickEvent>();
-        tokio::spawn(async move {
-            let mut worker = ClickCounterWorker {
-                db,
-                rx,
-                buffer: HashMap::new(),
-            };
-            worker.run().await
+        let flush_interval = config.analytics.flush_interval.clone();
+        task_tracker.spawn(async move {
+            let mut worker = ClickCounterWorker::new(db, rx, flush_interval);
+            worker.run(shutdown).await;
         });
         Self { tx }
     }
@@ -30,34 +32,46 @@ impl ClickCounter {
     pub fn notify(&self, event: ClickEvent) {
         if let Err(e) = self.tx.send(event) {
             error!(error = %e, "Failed to send click event to ClickCounter");
-        };
+        }
     }
+}
+
+#[derive(Debug)]
+struct ClickData {
+    count: i64,
+    at: DateTime<Utc>,
 }
 
 struct ClickCounterWorker {
     db: sqlx::PgPool,
     rx: UnboundedReceiver<ClickEvent>,
-    buffer: HashMap<String, (i64, DateTime<Utc>)>,
+    buffer: HashMap<String, ClickData>,
+    flush_interval: Duration,
 }
 
 impl ClickCounterWorker {
-    pub fn new(db: sqlx::PgPool, rx: UnboundedReceiver<ClickEvent>, buffer: HashMap<String, (i64, DateTime<Utc>)>) -> Self {
-        Self { db, rx, buffer }
+    pub fn new(db: sqlx::PgPool, rx: UnboundedReceiver<ClickEvent>, flush_interval: Duration) -> Self {
+        Self {
+            db,
+            rx,
+            buffer: HashMap::new(),
+            flush_interval,
+        }
     }
 
     #[instrument(skip_all)]
-    async fn run(&mut self) {
-        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(10));
+    async fn run(&mut self, shutdown: CancellationToken) {
+        let mut ticker = tokio::time::interval(self.flush_interval);
 
         loop {
             tokio::select! {
                 event = self.rx.recv() => {
                     match event{
                         Some(event) => {
-                            let entry = self.buffer.entry(event.short_code).or_insert((0, event.at));
-                            (*entry).0 += 1;
-                            if event.at > (*entry).1 {
-                                (*entry).1 = event.at;
+                            let entry = self.buffer.entry(event.short_code).or_insert(ClickData { count: 0, at: event.at });
+                            entry.count += 1;
+                            if event.at > entry.at {
+                                entry.at = event.at;
                             }
                         }
                         None => {
@@ -68,8 +82,12 @@ impl ClickCounterWorker {
                     }
                 }
                 _ = ticker.tick() => {
-                    info!("Tick");
                     self.flush().await;
+                }
+                _ = shutdown.cancelled() => {
+                    info!("Shutdown requested, flushing click buffer");
+                    self.flush().await;
+                    break;
                 }
             }
         }
@@ -82,22 +100,21 @@ impl ClickCounterWorker {
             return;
         }
 
-        let mut short_codes = Vec::with_capacity(self.buffer.len());
-        let mut click_counts = Vec::with_capacity(self.buffer.len());
-        let mut click_ats = Vec::with_capacity(self.buffer.len());
+        let (short_codes, click_counts, click_ats): (Vec<_>, Vec<_>, Vec<_>) = self
+            .buffer
+            .drain()
+            .map(|(code, ClickData { count, at })| (code.clone(), count, at))
+            .multiunzip();
 
-        for (short_code, (click_count, click_at)) in self.buffer.drain() {
-            short_codes.push(short_code);
-            click_counts.push(click_count);
-            click_ats.push(click_at);
-        }
+        let total = click_counts.iter().sum();
 
-        let total = click_counts.iter().fold(0, |acc, count| acc + count);
-
+        // todo: may lose some data if db write fails, should check for transient errors and retry
         db::update_link_total_clicks(&self.db, &short_codes, &click_counts, &click_ats)
             .await
-            .unwrap();
+            .unwrap_or_else(|e| error!(error=?e, "Failed to update click counts"));
 
-        db::update_total_clicks(&self.db, total).await.unwrap();
+        db::update_total_clicks(&self.db, total)
+            .await
+            .unwrap_or_else(|e| error!(error=?e, "Failed to update total click count"));
     }
 }
