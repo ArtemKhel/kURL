@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
 
 use axum::routing::get;
 use proto::core::link_service_server::LinkServiceServer;
@@ -6,7 +6,7 @@ use sqlx::migrate::Migrator;
 use tokio::net::TcpListener;
 use tonic::service::Routes;
 use tower::ServiceBuilder;
-use tracing::{debug, info, info_span};
+use tracing::debug;
 
 use crate::{grpc::LinkService, init::init, state::AppState};
 

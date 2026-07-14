@@ -22,7 +22,7 @@ impl Persistence {
         redis: deadpool_redis::Pool,
         task_tracker: &TaskTracker,
         shutdown: CancellationToken,
-    ) -> () {
+    ) {
         task_tracker.spawn(async move {
             let persistence = Persistence::new(db, redis);
             let mut ticker = tokio::time::interval(FLUSH_INTERVAL);

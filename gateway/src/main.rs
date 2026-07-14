@@ -5,17 +5,15 @@ mod routes;
 mod state;
 pub mod web;
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use axum::{
     Router,
     routing::{delete, get, post},
 };
-use common;
-use proto::core::link_service_client::LinkServiceClient;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
-use tracing::{debug, info, info_span};
+use tracing::info;
 
 use crate::{init::init, state::AppState};
 

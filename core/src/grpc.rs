@@ -3,9 +3,9 @@ use proto::core::{
     CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse, link_service_server,
 };
 use tonic::{Request, Response, Status};
-use tracing::{debug, error, info, instrument};
+use tracing::{error, info, instrument};
 
-use crate::{db, state::AppState};
+use crate::state::AppState;
 
 #[derive(Debug)]
 pub struct LinkService {

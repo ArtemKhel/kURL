@@ -1,6 +1,6 @@
 use common::{events::ClickEvent, redis_keys::RedisKeys};
 use redis::AsyncTypedCommands;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument};
 
 use crate::state::SharedState;
 

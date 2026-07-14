@@ -28,7 +28,7 @@ pub async fn delete_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> R
     sqlx::query!(" delete from links where short_code = $1", short_code)
         .execute(exec)
         .await
-        .map_err(|e| DbError::Other(e))
+        .map_err(DbError::Other)
         .and_then(|target| {
             if target.rows_affected() == 0 {
                 Err(DbError::NotFound)

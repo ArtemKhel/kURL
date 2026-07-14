@@ -111,7 +111,7 @@ impl EventConsumer {
             .xack_del(
                 &self.config.redis.streams.events,
                 CONSUMER_GROUP,
-                &[entry.id.clone()],
+                std::slice::from_ref(&entry.id),
                 StreamDeletionPolicy::Acked,
             )
             .await
@@ -122,7 +122,7 @@ impl EventConsumer {
         Persistence::spawn(
             self.db.clone(),
             self.redis.clone(),
-            &task_tracker,
+            task_tracker,
             shutdown.child_token(),
         );
     }

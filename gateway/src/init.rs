@@ -3,7 +3,7 @@ use std::time::Duration;
 use deadpool_redis::Pool;
 use proto::core::link_service_client::LinkServiceClient;
 use tonic::transport::Channel;
-use tracing::{info, info_span, instrument};
+use tracing::{info, instrument};
 
 #[instrument]
 pub async fn init(config: &crate::Config) -> Result<(Pool, LinkServiceClient<Channel>), Box<dyn std::error::Error>> {

@@ -21,7 +21,7 @@ impl ClickCounter {
         shutdown: CancellationToken,
     ) -> ClickCounter {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<ClickEvent>();
-        let flush_interval = config.analytics.flush_interval.clone();
+        let flush_interval = config.analytics.flush_interval;
         task_tracker.spawn(async move {
             let mut worker = ClickCounterWorker::new(db, rx, flush_interval);
             worker.run(shutdown).await;

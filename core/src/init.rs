@@ -1,8 +1,7 @@
 use std::time::Duration;
 
-use tracing::{info, info_span, instrument};
+use tracing::{info, instrument};
 
-use crate::db;
 
 #[instrument]
 pub async fn init(config: &crate::Config) -> Result<(sqlx::PgPool, deadpool_redis::Pool), Box<dyn std::error::Error>> {
