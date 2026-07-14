@@ -11,10 +11,10 @@ pub enum GetLinkError {
     Database(#[from] sqlx::Error),
 }
 
-#[instrument(skip(pool))]
-pub async fn get_link(pool: &PgPool, short_code: &str) -> Result<String, GetLinkError> {
+#[instrument(skip(exec))]
+pub async fn get_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<String, GetLinkError> {
     sqlx::query_scalar!("select target from links where short_code = $1", short_code)
-        .fetch_optional(pool)
+        .fetch_optional(exec)
         .await?
         .inspect(|target| info!(%short_code, %target, "Link found"))
         .ok_or_else(|| {
@@ -32,14 +32,18 @@ pub enum CreateLinkError {
     Database(#[from] sqlx::Error),
 }
 
-#[instrument(skip(pool))]
-pub async fn create_link(pool: &PgPool, short_code: &str, target: &str) -> Result<(), CreateLinkError> {
+#[instrument(skip(exec))]
+pub async fn create_link(
+    exec: impl sqlx::PgExecutor<'_>,
+    short_code: &str,
+    target: &str,
+) -> Result<(), CreateLinkError> {
     sqlx::query!(
         "insert into links (short_code, target) values ($1, $2)",
         short_code,
         target
     )
-    .execute(pool)
+    .execute(exec)
     .await
     .map_err(|e| {
         if is_unique_violation(&e) {
@@ -69,10 +73,10 @@ pub enum DeleteLinkError {
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
 }
-#[instrument(skip(pool))]
-pub async fn delete_link(pool: &PgPool, short_code: &str) -> Result<(), DeleteLinkError> {
+#[instrument(skip(exec))]
+pub async fn delete_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<(), DeleteLinkError> {
     sqlx::query!(" delete from links where short_code = $1", short_code)
-        .execute(pool)
+        .execute(exec)
         .await
         .map_err(|e| {
             warn!(error = %e, %short_code, "DB error while deleting the link");

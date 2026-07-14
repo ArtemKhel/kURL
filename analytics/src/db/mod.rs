@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use sqlx::postgres::PgPoolOptions;
-use tracing::error;
+use tracing::{error, instrument};
 
 pub async fn connect(url: &str) -> Result<sqlx::PgPool, sqlx::Error> {
     PgPoolOptions::new()
@@ -14,8 +14,9 @@ pub async fn connect(url: &str) -> Result<sqlx::PgPool, sqlx::Error> {
 
 // todo: check if update_* doesn't lose/overrride data
 
+#[instrument(skip(exec))]
 pub async fn update_link_daily_clicks(
-    db: &sqlx::PgPool,
+    exec: impl sqlx::PgExecutor<'_>,
     link_short_codes: &[String],
     link_dates: &[chrono::NaiveDate],
     link_clicks: &[i64],
@@ -30,14 +31,15 @@ pub async fn update_link_daily_clicks(
         &link_dates,
         &link_clicks
     )
-    .execute(db)
+    .execute(exec)
     .await
     .inspect_err(|e| error!(error=?e, "failed to execute query"))
     .map(|_| ())
 }
 
+#[instrument(skip(exec))]
 pub async fn update_global_daily_clicks(
-    db: &sqlx::PgPool,
+    exec: impl sqlx::PgExecutor<'_>,
     dates: &[chrono::NaiveDate],
     clicks: &[i64],
 ) -> Result<(), sqlx::Error> {
@@ -50,14 +52,15 @@ pub async fn update_global_daily_clicks(
         &dates,
         &clicks
     )
-    .execute(db)
+    .execute(exec)
     .await
     .inspect_err(|e| error!(error=?e, "failed to execute query"))
     .map(|_| ())
 }
 
+#[instrument(skip(exec))]
 pub async fn update_link_total_clicks(
-    db: &sqlx::PgPool,
+    exec: impl sqlx::PgExecutor<'_>,
     short_codes: &[String],
     click_counts: &[i64],
     click_ats: &[chrono::DateTime<chrono::Utc>],
@@ -74,13 +77,14 @@ pub async fn update_link_total_clicks(
         click_counts,
         click_ats
     )
-    .execute(db)
+    .execute(exec)
     .await
     .inspect_err(|e| error!(error=?e, "failed to execute query"))
     .map(|_| ())
 }
 
-pub async fn update_total_clicks(db: &sqlx::PgPool, count: i64) -> Result<(), sqlx::Error> {
+#[instrument(skip(exec))]
+pub async fn update_total_clicks(exec: impl sqlx::PgExecutor<'_>, count: i64) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
         update analytics_global as g
@@ -88,7 +92,7 @@ pub async fn update_total_clicks(db: &sqlx::PgPool, count: i64) -> Result<(), sq
         "#,
         count
     )
-    .execute(db)
+    .execute(exec)
     .await
     .inspect_err(|e| error!(error=?e, "failed to execute query"))
     .map(|_| ())
