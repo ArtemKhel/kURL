@@ -1,8 +1,8 @@
 use chrono::NaiveDate;
-use common::{events::ClickEvent, redis_keys::RedisKeys};
+use common::redis_keys::RedisKeys;
 use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tracing::error;
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use tracing::{error, info};
 
 use crate::db;
 
@@ -14,14 +14,29 @@ pub struct Persistence {
 impl Persistence {
     fn new(db: sqlx::PgPool, redis: deadpool_redis::Pool) -> Self { Self { db, redis } }
 
-    pub fn spawn(db: sqlx::PgPool, redis: deadpool_redis::Pool) -> () {
-        tokio::spawn(async move {
+    pub fn spawn(
+        db: sqlx::PgPool,
+        redis: deadpool_redis::Pool,
+        task_tracker: &TaskTracker,
+        shutdown: CancellationToken,
+    ) -> () {
+        task_tracker.spawn(async move {
             let persistence = Persistence::new(db, redis);
             let mut ticker = tokio::time::interval(core::time::Duration::from_secs(60));
             loop {
-                ticker.tick().await;
-                if let Err(e) = persistence.snapshot_and_trim().await {
-                    error!(error = %e, "snapshot_and_trim failed");
+                tokio::select! {
+                    _ = shutdown.cancelled() => {
+                        info!("Shutting down");
+                        if let Err(e) = persistence.snapshot_and_trim().await {
+                            error!(error = %e, "snapshot_and_trim failed");
+                        }
+                        info!("Shutdown complete");
+                    },
+                    _ = ticker.tick() => {
+                        if let Err(e) = persistence.snapshot_and_trim().await {
+                            error!(error = %e, "snapshot_and_trim failed");
+                        }
+                    }
                 }
             }
         });

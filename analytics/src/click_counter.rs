@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use common::events::ClickEvent;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio_util::sync::CancellationToken;
+use tokio_util::task::TaskTracker;
 use tracing::{error, info, instrument};
 
 use crate::db;
@@ -61,10 +63,11 @@ impl ClickCounterWorker {
                         None => {
                             info!("ClickCounter channel closed, exiting");
                             self.flush().await;
+                            break;
                         }
                     }
                 }
-                _tick = ticker.tick() => {
+                _ = ticker.tick() => {
                     info!("Tick");
                     self.flush().await;
                 }

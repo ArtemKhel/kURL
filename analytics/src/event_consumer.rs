@@ -2,13 +2,13 @@ use std::time::Duration;
 
 use common::events::ClickEvent;
 use redis::{
-    AsyncTypedCommands,
     streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
+    AsyncTypedCommands,
 };
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{debug, error, info, instrument, warn};
-use crate::click_counter::ClickCounter;
-use crate::redis_persistence::Persistence;
-use crate::redis_stats::RedisStats;
+
+use crate::{click_counter::ClickCounter, redis_persistence::Persistence, redis_stats::RedisStats};
 
 const CONSUMER_GROUP: &str = "Analytics";
 const CONSUMER_NAME: &str = "worker-0";
@@ -25,17 +25,23 @@ impl EventConsumer {
     pub fn new(redis: deadpool_redis::Pool, db: sqlx::PgPool, config: crate::Config) -> Self {
         let click_counter = ClickCounter::new(db.clone());
         let redis_stats = RedisStats::new(config.clone());
-        Self { redis, db, config, click_counter, redis_stats}
+        Self {
+            redis,
+            db,
+            config,
+            click_counter,
+            redis_stats,
+        }
     }
 
     #[instrument(skip(self))]
-    pub async fn run(self) -> anyhow::Result<()> {
+    pub async fn run(self, task_tracker: TaskTracker, shutdown: CancellationToken) {
         // todo: on restart?
 
-        self.ensure_consumer_group().await?;
-        self.spawn_persistence_task().await;
-
-        Persistence::spawn(self.db.clone(), self.redis.clone());
+        self.ensure_consumer_group()
+            .await
+            .unwrap_or_else(|e| error!(error=?e, "Failed to create event consumer group"));
+        self.spawn_persistence_task(&task_tracker, shutdown.child_token());
 
         // Current version of `deadpool-redis` doesn't allow to override `DEFAULT_RESPONSE_TIMEOUT`
         // in `redis::AsyncConnectionOptions` for an underlying client
@@ -46,11 +52,20 @@ impl EventConsumer {
             .block(250);
 
         loop {
-            let mut conn = self.redis.get().await?;
+            let Ok(mut conn) = self.redis.get().await else {
+                error!("Failed to get Redis connection");
+                continue;
+            };
+            let stream_keys = [&self.config.redis.streams.events];
+            let stream_ids = [">"];
 
-            let reply = conn
-                .xread_options(&[&self.config.redis.streams.events], &[">"], &opts)
-                .await;
+            let reply = tokio::select! {
+                _ = shutdown.cancelled() => {
+                    info!("Shutdown requested, stopping analytics consumer loop");
+                    break;
+                }
+                reply = conn.xread_options(&stream_keys, &stream_ids, &opts) => reply,
+            };
 
             let reply = match reply {
                 Ok(Some(r)) => r,
@@ -107,17 +122,13 @@ impl EventConsumer {
             .inspect_err(|e| error!(error = %e, "Error acknowledging ClickEvent in Redis stream"));
     }
 
-    async fn spawn_persistence_task(&self) {
-        let redis = self.redis.clone();
-        let db = self.db.clone();
-        tokio::spawn(async move {
-            // todo: dump data in db, trim redis
-            error!("Persistence task not implemented yet");
-            let mut ticker = tokio::time::interval(Duration::from_mins(10));
-            loop {
-                ticker.tick().await;
-            }
-        });
+    fn spawn_persistence_task(&self, task_tracker: &TaskTracker, shutdown: CancellationToken) {
+        Persistence::spawn(
+            self.db.clone(),
+            self.redis.clone(),
+            &task_tracker,
+            shutdown.child_token(),
+        );
     }
 
     async fn ensure_consumer_group(&self) -> anyhow::Result<()> {

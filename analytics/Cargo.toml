@@ -8,6 +8,7 @@ common.workspace = true
 proto.workspace = true
 
 tokio.workspace = true
+tokio-util.workspace = true
 tonic.workspace = true
 redis.workspace = true
 deadpool-redis.workspace = true
