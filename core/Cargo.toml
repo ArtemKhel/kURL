@@ -16,5 +16,6 @@ deadpool-redis.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 sqlx.workspace = true
+anyhow.workspace = true
 
 thiserror = "2.0.18" # TODO:

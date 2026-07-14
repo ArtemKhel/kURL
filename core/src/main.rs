@@ -8,52 +8,28 @@ use tonic::service::Routes;
 use tower::ServiceBuilder;
 use tracing::{debug, info, info_span};
 
-use crate::{grpc::LinkService, state::AppState};
+use crate::{grpc::LinkService, init::init, state::AppState};
 
 pub mod cache;
 pub mod db;
 mod grpc;
+pub mod init;
 mod state;
+
+pub(crate) type Config = common::config::CoreConfig;
 
 //noinspection RsCompileErrorMacro
 static MIGRATOR: Migrator = sqlx::migrate!("../migrations/");
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config: common::config::CoreConfig = common::config::AppConfig::load()
+    let config: Config = common::config::AppConfig::load()
         .expect("Failed to load application config")
         .into();
     common::logging::init_tracing(&config.logging.level);
     debug!(?config);
 
-    let span = info_span!("init").entered();
-    let (db_pool, redis) = tokio::try_join!(
-        async {
-            let db_pool = db::connect(config.database.to_string().as_str())
-                .await
-                .expect("Failed to connect to database");
-            MIGRATOR.run(&db_pool).await.expect("Failed to apply migrations");
-            info!("Connected to database: {}", config.database.to_string());
-            Ok(db_pool)
-        },
-        common::connect_with_retry(
-            "Redis",
-            || {
-                let cache_url = config.redis.to_string();
-                async move {
-                    let cfg = deadpool_redis::Config::from_url(cache_url);
-                    let pool = cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1))?;
-                    let mut conn = pool.get().await?;
-                    redis::cmd("PING").query_async::<String>(&mut *conn).await?;
-                    Ok(pool)
-                }
-            },
-            8,
-            Duration::from_millis(50),
-        )
-    )?;
-    info!("All services initialized successfully");
-    drop(span);
+    let (db_pool, redis) = init(&config).await.expect("Failed to initialize DB or Redis pool");
 
     let state = AppState { db_pool, redis };
 
@@ -72,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let listener = TcpListener::bind(addr).await?;
     let _ = axum::serve(listener, app)
-        .with_graceful_shutdown(common::shutdown())
+        .with_graceful_shutdown(common::shutdown(async {}))
         .await;
 
     Ok(())

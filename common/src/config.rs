@@ -76,6 +76,8 @@ pub struct AnalyticsServiceConfig {
     pub read_batch_size: usize,
     #[serde(deserialize_with = "duration_from_secs")]
     pub read_block_secs: Duration,
+    #[serde(rename = "flush_interval_secs", deserialize_with = "duration_from_secs")]
+    pub flush_interval: Duration,
 }
 
 //  MASTER CONFIG
@@ -134,6 +136,7 @@ impl AppConfig {
             .set_default("core.port", 3001)?
             .set_default("analytics.read_batch_size", 100)?
             .set_default("analytics.read_block_secs", 5)?
+            .set_default("analytics.flush_interval_secs", 60)?
             // Priority 2: TOML file (if it exists)
             .add_source(File::with_name("config/config.toml").required(false))
             // Priority 3 (highest): Environment variables
@@ -226,6 +229,7 @@ impl From<AppConfig> for AnalyticsConfig {
             analytics: AnalyticsServiceConfig {
                 read_batch_size: value.analytics.read_batch_size,
                 read_block_secs: value.analytics.read_block_secs,
+                flush_interval: value.analytics.flush_interval,
             },
             // redis: ServiceAddress {
             //     scheme: Some("redis".into()),

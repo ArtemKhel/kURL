@@ -1,5 +1,6 @@
 mod cache;
 mod grpc;
+pub mod init;
 mod routes;
 mod state;
 pub mod web;
@@ -7,8 +8,8 @@ pub mod web;
 use std::{sync::Arc, time::Duration};
 
 use axum::{
-    Router,
     routing::{delete, get, post},
+    Router,
 };
 use common;
 use proto::core::link_service_client::LinkServiceClient;
@@ -16,51 +17,24 @@ use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, info, info_span};
 
-use crate::state::AppState;
+use crate::{init::init, state::AppState};
 
+pub(crate) type Config = common::config::GatewayConfig;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config: common::config::GatewayConfig = common::config::AppConfig::load()?.into();
+    let config: Config = common::config::AppConfig::load()?.into();
     common::logging::init_tracing(&config.logging.level);
     info!(?config);
 
-    let span = info_span!("init").entered();
-    let (redis_pool, core_client) = tokio::try_join!(
-        common::connect_with_retry(
-            "Redis",
-            || {
-                let cache_url = config.redis.to_string();
-                async move {
-                    let cfg = deadpool_redis::Config::from_url(cache_url);
-                    let pool = cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1))?;
-                    let mut conn = pool.get().await?;
-                    redis::cmd("PING").query_async::<String>(&mut *conn).await?;
-                    Ok(pool)
-                }
-            },
-            8,
-            Duration::from_millis(50)
-        ),
-        common::connect_with_retry(
-            "Core gRPC",
-            || {
-                let core_url = config.core.to_string();
-                async move {
-                    let grpc_client = LinkServiceClient::connect(core_url).await?;
-                    Ok(grpc_client)
-                }
-            },
-            8,
-            Duration::from_millis(50)
-        )
-    )?;
-    info!("All services initialized successfully");
-    drop(span);
+    let (redis, grpc_client) = init(&config)
+        .await
+        .expect("Failed to connect to database or gRPC server");
+    let listener = TcpListener::bind(config.gateway.to_string()).await?;
 
     let state = Arc::new(AppState {
-        config: config.clone(),
-        redis: redis_pool,
-        grpc_client: core_client,
+        config,
+        redis,
+        grpc_client,
     });
 
     let app = Router::new()
@@ -72,9 +46,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/s/{code}", get(routes::redirect::redirect))
         .fallback(routes::not_found)
         .with_state(state);
-    let listener = TcpListener::bind(config.gateway.to_string()).await?;
     axum::serve(listener, app)
-        .with_graceful_shutdown(common::shutdown())
+        .with_graceful_shutdown(common::shutdown(async {}))
         .await?;
     Ok(())
 }

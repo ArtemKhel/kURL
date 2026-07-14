@@ -10,4 +10,5 @@ serde.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 chrono.workspace = true
-anyhow = "1.0.103"
+sqlx.workspace = true
+anyhow.workspace = true

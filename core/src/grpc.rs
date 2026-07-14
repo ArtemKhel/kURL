@@ -1,5 +1,5 @@
 use proto::core::{
-    CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse, link_service_server,
+    link_service_server, CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse,
 };
 use tonic::{Request, Response, Status};
 use tracing::error;
@@ -33,7 +33,6 @@ impl link_service_server::LinkService for LinkService {
         crate::cache::insert_link(self.state.redis.clone(), short_code.clone(), target).await;
 
         Ok(Response::new(CreateLinkResponse { short_code }))
-        // todo: stats?
     }
 
     async fn get_link(&self, request: Request<GetLinkRequest>) -> Result<Response<GetLinkResponse>, Status> {
@@ -52,7 +51,6 @@ impl link_service_server::LinkService for LinkService {
         crate::cache::insert_link(self.state.redis.clone(), short_code, target.clone()).await;
 
         Ok(Response::new(GetLinkResponse { target }))
-        // todo: stats?
     }
 
     async fn delete_link(&self, request: Request<DeleteLinkRequest>) -> Result<Response<()>, Status> {
