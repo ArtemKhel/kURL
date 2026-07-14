@@ -1,7 +1,7 @@
 use common::events::ClickEvent;
 use redis::{
-    streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
     AsyncTypedCommands,
+    streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{debug, error, info, instrument, warn};

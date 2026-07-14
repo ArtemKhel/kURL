@@ -1,6 +1,6 @@
 use common::db_utils::DbError;
 use proto::core::{
-    link_service_server, CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse,
+    CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse, link_service_server,
 };
 use tonic::{Request, Response, Status};
 use tracing::{debug, error, info, instrument};
