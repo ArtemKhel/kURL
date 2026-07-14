@@ -8,7 +8,7 @@ use crate::db;
 pub async fn init(config: &crate::Config) -> Result<(sqlx::PgPool, deadpool_redis::Pool), Box<dyn std::error::Error>> {
     let (db_pool, redis) = tokio::try_join!(
         async {
-            let db_pool = db::connect(config.database.to_string().as_str())
+            let db_pool = common::db_utils::connect(config.database.to_string().as_str())
                 .await
                 .expect("Failed to connect to database");
             crate::MIGRATOR.run(&db_pool).await.expect("Failed to apply migrations");

@@ -10,7 +10,7 @@ pub async fn init(
     // TODO: copypaste
     let (db_pool, redis) = tokio::try_join!(
         async {
-            let db_pool = crate::db::connect(config.database.to_string().as_str())
+            let db_pool = common::db_utils::connect(config.database.to_string().as_str())
                 .await
                 .expect("Failed to connect to database");
             info!("Connected to database: {}", config.database.to_string());

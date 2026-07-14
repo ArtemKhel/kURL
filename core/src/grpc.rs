@@ -18,7 +18,7 @@ impl link_service_server::LinkService for LinkService {
     async fn create_link(&self, request: Request<CreateLinkRequest>) -> Result<Response<CreateLinkResponse>, Status> {
         let CreateLinkRequest { short_code, target } = request.into_inner();
 
-        db::links::create_link(&self.state.db_pool, &short_code, &target)
+        crate::db::create_link(&self.state.db_pool, &short_code, &target)
             .await
             .map_err(|err| match err {
                 DbError::Conflict(_) => Status::already_exists("Short code already exists"),
@@ -38,7 +38,7 @@ impl link_service_server::LinkService for LinkService {
     async fn get_link(&self, request: Request<GetLinkRequest>) -> Result<Response<GetLinkResponse>, Status> {
         let GetLinkRequest { short_code } = request.into_inner();
 
-        let target = db::links::get_link(&self.state.db_pool, &short_code)
+        let target = crate::db::get_link(&self.state.db_pool, &short_code)
             .await
             .map_err(|err| match err {
                 DbError::NotFound => Status::not_found("Short code not found"),
@@ -58,7 +58,7 @@ impl link_service_server::LinkService for LinkService {
     async fn delete_link(&self, request: Request<DeleteLinkRequest>) -> Result<Response<()>, Status> {
         let DeleteLinkRequest { short_code } = request.into_inner();
 
-        db::links::delete_link(&self.state.db_pool, &short_code)
+        crate::db::delete_link(&self.state.db_pool, &short_code)
             .await
             .map_err(|err| match err {
                 DbError::NotFound => Status::not_found("Short code not found"),
