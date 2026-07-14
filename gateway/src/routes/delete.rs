@@ -21,11 +21,11 @@ pub async fn delete(State(state): State<SharedState>, Json(delete_req): Json<Del
         Ok(()) => Ok(()),
         Err(e) => match e.code() {
             Code::NotFound => {
-                info!(short_code = %delete_req.short_code, "Short code not found");
+                info!("Short code not found");
                 Err(StatusCode::NOT_FOUND)
             }
             _ => {
-                warn!(error = %e, short_code = %delete_req.short_code, "Failed to get link");
+                warn!(error = %e, "Failed to get link");
                 Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
         },

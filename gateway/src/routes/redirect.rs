@@ -18,12 +18,12 @@ pub async fn redirect(
     Path(short_code): Path<String>,
 ) -> Result<Redirect, StatusCode> {
     if let Some(url) = redis_query(&state, short_code.clone()).await {
-        info!(short_code = %short_code, "Cache hit");
+        info!("Cache hit");
         send_click_event(&state, &short_code).await;
         return Ok(Redirect::permanent(&url));
     }
 
-    info!(short_code = %short_code, "Cache miss");
+    info!("Cache miss");
     match grpc::core_get_link(&state, short_code.clone()).await {
         // todo: permanent with expire?
         Ok(target) => {
@@ -32,11 +32,11 @@ pub async fn redirect(
         }
         Err(e) => match e.code() {
             Code::NotFound => {
-                info!(short_code = %short_code, "Short code not found");
+                info!("Short code not found");
                 Err(StatusCode::NOT_FOUND)
             }
             _ => {
-                warn!(error = %e, short_code = %short_code, "Failed to get link");
+                warn!(error = %e, "Failed to get link");
                 Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
         },
