@@ -108,7 +108,8 @@ impl ClickCounterWorker {
 
         let total = click_counts.iter().sum();
 
-        // todo: may lose some data if db write fails, should check for transient errors and retry
+        // todo: may lose some data if db write fails
+        //  should run in transaction, check for transient errors and retry, then wipe buffer
         db::update_link_total_clicks(&self.db, &short_codes, &click_counts, &click_ats)
             .await
             .unwrap_or_else(|e| error!(error=?e, "Failed to update click counts"));

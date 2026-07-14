@@ -4,11 +4,6 @@ use tracing::{error, info, instrument, warn};
 
 use crate::state::SharedState;
 
-// trait Cache {
-//     // todo:
-//     async fn query(state: &SharedState, short_code: String) -> Option<String> { None }
-// }
-
 #[instrument(skip(state))]
 pub async fn redis_query(state: &SharedState, short_code: String) -> Option<String> {
     // todo: unwraps
@@ -35,7 +30,7 @@ async fn inner_send_click_event(state: SharedState, short_code: String) -> Resul
     info!(?click_event, "Click event");
     let mut redis_conn = state.redis.get().await?;
     redis_conn
-        .xadd("Clicks", "*", &[(
+        .xadd(&state.config.redis.streams.events, "*", &[(
             "event".to_string(),
             serde_json::to_string(&click_event).unwrap(),
         )])

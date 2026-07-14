@@ -97,7 +97,7 @@ pub struct AppConfig {
 #[derive(Debug, Clone)]
 pub struct GatewayConfig {
     pub gateway: GatewayServiceConfig,
-    pub redis: ServiceAddress,
+    pub redis: RedisConfig,
     pub core: ServiceAddress,
     pub logging: LoggingConfig,
 }
@@ -198,11 +198,7 @@ impl From<AppConfig> for GatewayConfig {
     fn from(value: AppConfig) -> Self {
         GatewayConfig {
             gateway: value.gateway,
-            redis: ServiceAddress {
-                scheme: Some("redis".into()),
-                host: value.redis.host,
-                port: value.redis.port,
-            },
+            redis: value.redis,
             core: ServiceAddress {
                 scheme: Some("grpc".into()),
                 host: value.core.host,
