@@ -338,6 +338,7 @@ dependencies = [
  "config",
  "serde",
  "sqlx",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",

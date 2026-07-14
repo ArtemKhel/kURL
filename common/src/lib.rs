@@ -3,6 +3,7 @@ pub mod events;
 pub mod logging;
 pub mod redis_keys;
 mod shutdown;
+pub mod db_utils;
 
 use std::time::Duration;
 

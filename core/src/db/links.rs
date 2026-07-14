@@ -1,43 +1,16 @@
-use sqlx::PgPool;
-use thiserror::Error;
+use common::db_utils::DbError;
 use tracing::{debug, info, instrument, warn};
 
-#[derive(Debug, Error)]
-pub enum GetLinkError {
-    #[error("Link not found")]
-    NotFound,
-
-    #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
-}
-
 #[instrument(skip(exec))]
-pub async fn get_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<String, GetLinkError> {
+pub async fn get_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<String, DbError> {
     sqlx::query_scalar!("select target from links where short_code = $1", short_code)
         .fetch_optional(exec)
         .await?
-        .inspect(|target| info!(%short_code, %target, "Link found"))
-        .ok_or_else(|| {
-            info!(%short_code, "Link not found");
-            GetLinkError::NotFound
-        })
-}
-
-#[derive(Debug, Error)]
-pub enum CreateLinkError {
-    #[error("Short code already exists")]
-    Duplicate,
-
-    #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
+        .ok_or_else(|| DbError::NotFound)
 }
 
 #[instrument(skip(exec))]
-pub async fn create_link(
-    exec: impl sqlx::PgExecutor<'_>,
-    short_code: &str,
-    target: &str,
-) -> Result<(), CreateLinkError> {
+pub async fn create_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str, target: &str) -> Result<(), DbError> {
     sqlx::query!(
         "insert into links (short_code, target) values ($1, $2)",
         short_code,
@@ -45,49 +18,21 @@ pub async fn create_link(
     )
     .execute(exec)
     .await
-    .map_err(|e| {
-        if is_unique_violation(&e) {
-            info!(%short_code, "Duplicate short code");
-            CreateLinkError::Duplicate
-        } else {
-            warn!(error = %e, %short_code, %target, "DB error while creating link");
-            CreateLinkError::Database(e)
-        }
-    })?;
+    .map_err(DbError::from)?;
 
     Ok(())
 }
 
-fn is_unique_violation(err: &sqlx::Error) -> bool {
-    matches!(
-        err,
-        sqlx::Error::Database(db_err)
-            if db_err.kind() == sqlx::error::ErrorKind::UniqueViolation
-    )
-}
-
-#[derive(Debug, Error)]
-pub enum DeleteLinkError {
-    #[error("Link not found")]
-    NotFound,
-    #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
-}
 #[instrument(skip(exec))]
-pub async fn delete_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<(), DeleteLinkError> {
+pub async fn delete_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<(), DbError> {
     sqlx::query!(" delete from links where short_code = $1", short_code)
         .execute(exec)
         .await
-        .map_err(|e| {
-            warn!(error = %e, %short_code, "DB error while deleting the link");
-            DeleteLinkError::Database(e)
-        })
+        .map_err(|e| DbError::Other(e))
         .and_then(|target| {
             if target.rows_affected() == 0 {
-                debug!(%short_code, "No rows affected while deleting the link");
-                Err(DeleteLinkError::NotFound)
+                Err(DbError::NotFound)
             } else {
-                debug!(rows_affected = target.rows_affected(), "link deleted successfully");
                 Ok(())
             }
         })

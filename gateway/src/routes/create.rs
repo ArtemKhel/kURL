@@ -1,7 +1,7 @@
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use tonic::Code;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use crate::{grpc, state::SharedState};
 
@@ -17,6 +17,7 @@ pub struct CreateResp {
     url: String,
 }
 
+#[instrument(skip_all, fields(short_code = create_req.short_code, target = create_req.target))]
 pub async fn create(
     State(state): State<SharedState>,
     Json(create_req): Json<CreateReq>,

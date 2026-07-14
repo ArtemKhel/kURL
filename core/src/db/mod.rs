@@ -9,6 +9,7 @@ pub async fn connect(url: &str) -> Result<sqlx::PgPool, sqlx::Error> {
         // . todo: what else is there?
         .acquire_timeout(Duration::from_secs(10))
         .max_connections(5)
+        .test_before_acquire(true)
         .connect(url)
         .await
 }

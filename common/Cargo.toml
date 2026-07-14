@@ -12,3 +12,4 @@ tracing-subscriber.workspace = true
 chrono.workspace = true
 sqlx.workspace = true
 anyhow.workspace = true
+thiserror.workspace = true

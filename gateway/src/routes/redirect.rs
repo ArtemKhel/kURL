@@ -4,7 +4,7 @@ use axum::{
     response::Redirect,
 };
 use tonic::Code;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 
 use crate::{
     cache::{redis_query, send_click_event},
@@ -12,6 +12,7 @@ use crate::{
     state::SharedState,
 };
 
+#[instrument(skip_all, fields(short_code = short_code))]
 pub async fn redirect(
     State(state): State<SharedState>,
     Path(short_code): Path<String>,
