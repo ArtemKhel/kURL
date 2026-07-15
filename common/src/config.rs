@@ -13,6 +13,8 @@ use tracing::{error, info};
 pub struct RedisConfig {
     pub host: String,
     pub port: u16,
+    #[serde(rename = "cache_ttl_secs", deserialize_with = "duration_from_secs")]
+    pub cache_ttl: Duration,
     pub streams: Streams,
 }
 
@@ -124,6 +126,7 @@ impl AppConfig {
             // Priority 1 (lowest): Defaults
             .set_default("redis.host", "localhost")?
             .set_default("redis.port", 6379)?
+            .set_default("redis.cache_ttl_secs", 300)?
             .set_default("database.host", "localhost")?
             .set_default("database.port", 5432)?
             .set_default("database.user", "postgres")?

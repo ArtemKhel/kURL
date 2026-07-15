@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
 use axum::routing::get;
 use proto::core::link_service_server::LinkServiceServer;
@@ -31,7 +31,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (db_pool, redis) = init(&config).await.expect("Failed to initialize DB or Redis pool");
 
-    let state = AppState { db_pool, redis };
+    let state = Arc::new(AppState {
+        db_pool,
+        redis,
+        config: config.clone(),
+    });
 
     let addr = config.core.to_string().parse::<SocketAddr>()?;
 

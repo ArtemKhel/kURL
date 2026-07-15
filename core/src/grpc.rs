@@ -1,6 +1,7 @@
+use std::sync::Arc;
 use common::db_utils::DbError;
 use proto::core::{
-    CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse, link_service_server,
+    link_service_server, CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse,
 };
 use tonic::{Request, Response, Status};
 use tracing::{error, info, instrument};
@@ -9,7 +10,7 @@ use crate::state::AppState;
 
 #[derive(Debug)]
 pub struct LinkService {
-    pub state: AppState,
+    pub state: Arc<AppState>,
 }
 
 #[tonic::async_trait]
@@ -29,7 +30,13 @@ impl link_service_server::LinkService for LinkService {
             })?;
         info!("Link created successfully");
 
-        crate::cache::insert_link(self.state.redis.clone(), short_code.clone(), target).await;
+        crate::cache::insert_link(
+            self.state.redis.clone(),
+            short_code.clone(),
+            target,
+            self.state.config.redis.cache_ttl,
+        )
+        .await;
 
         Ok(Response::new(CreateLinkResponse { short_code }))
     }
@@ -49,7 +56,13 @@ impl link_service_server::LinkService for LinkService {
             })?;
         info!(target, "Link found");
 
-        crate::cache::insert_link(self.state.redis.clone(), short_code, target.clone()).await;
+        crate::cache::insert_link(
+            self.state.redis.clone(),
+            short_code,
+            target.clone(),
+            self.state.config.redis.cache_ttl,
+        )
+        .await;
 
         Ok(Response::new(GetLinkResponse { target }))
     }
