@@ -1,4 +1,3 @@
-pub mod click_counter;
 pub mod db;
 pub mod event_consumer;
 pub mod grpc;

@@ -1,12 +1,12 @@
 use common::events::ClickEvent;
 use redis::{
-    AsyncTypedCommands,
     streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
+    AsyncTypedCommands,
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::{click_counter::ClickCounter, redis_persistence::Persistence, redis_stats::RedisStats};
+use crate::{redis_persistence::Persistence, redis_stats::RedisStats};
 
 const CONSUMER_GROUP: &str = "Analytics";
 const CONSUMER_NAME: &str = "worker-0";
@@ -25,8 +25,6 @@ impl EventConsumer {
     #[instrument(skip(self))]
     pub async fn run(self, task_tracker: TaskTracker, shutdown: CancellationToken) {
         // todo: on restart?
-        let click_counter = ClickCounter::spawn(&self.config, self.db.clone(), &task_tracker, shutdown.child_token());
-        let redis_stats = RedisStats::new(self.config.clone());
 
         self.ensure_consumer_group()
             .await
@@ -71,20 +69,13 @@ impl EventConsumer {
 
             for key in reply.keys {
                 for entry in key.ids {
-                    self.process_entry(&mut conn, &entry, &click_counter, &redis_stats)
-                        .await;
+                    self.process_entry(&mut conn, &entry).await;
                 }
             }
         }
     }
 
-    async fn process_entry(
-        &self,
-        conn: &mut deadpool_redis::Connection,
-        entry: &StreamId,
-        click_counter: &ClickCounter,
-        redis_stats: &RedisStats,
-    ) {
+    async fn process_entry(&self, conn: &mut deadpool_redis::Connection, entry: &StreamId) {
         let event: Option<ClickEvent> = entry.map.get("event").and_then(|v| match v {
             redis::Value::BulkString(bytes) => serde_json::from_slice(bytes)
                 .map_err(|e| error!(error = %e, "Error deserializing ClickEvent from BulkString"))
@@ -99,10 +90,9 @@ impl EventConsumer {
         });
 
         if let Some(event) = event {
-            if let Err(e) = redis_stats.record_click(conn, &event).await {
+            if let Err(e) = RedisStats::record_click(conn, &event).await {
                 error!(error = %e, "Error recording ClickEvent from stats_counter");
             }
-            click_counter.notify(event)
         }
 
         // todo: batch ack
