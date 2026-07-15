@@ -1,8 +1,4 @@
-use axum::{
-    Json,
-    extract::State,
-    http::StatusCode,
-};
+use axum::{Json, extract::State, http::StatusCode};
 use serde::Deserialize;
 use tonic::Code;
 use tracing::{info, instrument, warn};

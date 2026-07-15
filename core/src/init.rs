@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use tracing::{info, instrument};
 
-
 #[instrument]
 pub async fn init(config: &crate::Config) -> Result<(sqlx::PgPool, deadpool_redis::Pool), Box<dyn std::error::Error>> {
     let (db_pool, redis) = tokio::try_join!(

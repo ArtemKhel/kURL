@@ -1,7 +1,7 @@
 use common::events::ClickEvent;
 use redis::{
-    streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
     AsyncTypedCommands,
+    streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{debug, error, info, instrument, warn};
@@ -89,10 +89,10 @@ impl EventConsumer {
             }
         });
 
-        if let Some(event) = event {
-            if let Err(e) = RedisStats::record_click(conn, &event).await {
-                error!(error = %e, "Error recording ClickEvent from stats_counter");
-            }
+        if let Some(event) = event
+            && let Err(e) = RedisStats::record_click(conn, &event).await
+        {
+            error!(error = %e, "Error recording ClickEvent from stats_counter");
         }
 
         // todo: batch ack

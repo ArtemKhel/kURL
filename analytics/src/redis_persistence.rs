@@ -1,6 +1,6 @@
-use std::{borrow::Borrow, collections::HashMap, ops::Deref};
+use std::collections::HashMap;
 
-use chrono::{DateTime, Duration, NaiveDate};
+use chrono::{Duration, NaiveDate};
 use common::redis_keys::RedisKeys;
 use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
@@ -130,7 +130,7 @@ impl Persistence {
     #[instrument(skip_all)]
     async fn update_global_click_count(&self, global_dates: &[NaiveDate], global_clicks: &[i64]) -> anyhow::Result<()> {
         let old_global_values: HashMap<NaiveDate, i64> =
-            db::get_global_daily_values(&self.db, &global_dates).await.unwrap();
+            db::get_global_daily_values(&self.db, global_dates).await.unwrap();
 
         let global_delta: i64 = global_dates
             .iter()
@@ -154,7 +154,7 @@ impl Persistence {
         // 2. Fetch the previously-durable values for exactly the rows we're
         // about to touch, so we can compute what changed since last snapshot.
         let old_link_values: HashMap<(String, NaiveDate), i64> = if !link_short_codes.is_empty() {
-            db::get_link_daily_values(&self.db, &link_short_codes, &link_dates)
+            db::get_link_daily_values(&self.db, link_short_codes, link_dates)
                 .await
                 .unwrap()
         } else {
@@ -163,15 +163,9 @@ impl Persistence {
 
         // 3. Deltas = new - old (defaulting old to 0 for a day never seen before)
         let mut link_deltas: HashMap<String, i64> = HashMap::new();
-        for ((code, day), new_val) in link_short_codes
-            .iter()
-            .cloned()
-            .zip(link_dates)
-            .zip(link_clicks)
-            .map(|((c, d), v)| ((c, d), v))
-        {
+        for ((code, day), new_val) in link_short_codes.iter().cloned().zip(link_dates).zip(link_clicks) {
             // todo: add type for hm key that allows borrowing
-            let old = old_link_values.get(&(code.clone(), day.clone())).copied().unwrap_or(0);
+            let old = old_link_values.get(&(code.clone(), *day)).copied().unwrap_or(0);
             *link_deltas.entry(code).or_insert(0) += new_val - old;
         }
 
@@ -201,7 +195,7 @@ impl Persistence {
         if !upd_codes.is_empty() {
             let result = db::update_link_total_and_last_click(&self.db, &upd_codes, &upd_deltas, &upd_ts).await;
             match result {
-                Ok(r) => debug!("applied click_count/last_clicked_at deltas"),
+                Ok(_r) => debug!("applied click_count/last_clicked_at deltas"),
                 Err(e) => error!(error = %e, "failed to apply click_count deltas"),
             }
         }

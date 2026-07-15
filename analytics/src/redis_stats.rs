@@ -20,7 +20,7 @@ impl RedisStats {
             .ignore()
             .hincr(&link_key, &date, 1)
             .ignore()
-            .set(&last_clicked_key, &event.at.to_string())
+            .set(&last_clicked_key, event.at.to_string())
             .ignore()
             .query_async(conn)
             .await
