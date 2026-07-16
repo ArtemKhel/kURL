@@ -179,6 +179,32 @@
         .input-border:focus-within {
             border-bottom: 1px solid #ffd7a9;
         }
+        .toast {
+            animation: slideIn 0.3s ease-out;
+        }
+        .toast.removing {
+            animation: slideOut 0.3s ease-in forwards;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col font-body-md text-on-surface bg-background">
@@ -254,6 +280,9 @@
         </div>
     </div>
 </main>
+<!-- Toast Container -->
+<div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none md:bottom-8 md:right-8"></div>
+
 <!-- Footer -->
 <footer class="bg-surface-dim full-width bottom-0 mt-auto">
     <div class="flex flex-col md:flex-row justify-between items-center max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg gap-stack-md">
@@ -267,6 +296,35 @@
     </div>
 </footer>
 <script>
+    function showToast(message, type = 'info', duration = 4000) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        const isSuccess = type === 'success';
+        const isError = type === 'error';
+        
+        toast.className = `toast pointer-events-auto px-stack-lg py-stack-md rounded-DEFAULT font-body-md text-label-sm flex items-center gap-2 ${
+            isSuccess ? 'bg-primary-container text-on-primary-container' :
+            isError ? 'bg-error-container text-on-error-container' :
+            'bg-surface-container-high text-on-surface'
+        }`;
+        
+        const icon = document.createElement('span');
+        icon.className = 'material-symbols-outlined text-[20px] flex-shrink-0';
+        icon.textContent = isSuccess ? 'check_circle' : isError ? 'error' : 'info';
+        
+        const textSpan = document.createElement('span');
+        textSpan.textContent = message;
+        
+        toast.appendChild(icon);
+        toast.appendChild(textSpan);
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.classList.add('removing');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
     const form = document.getElementById('shortenForm');
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -294,13 +352,13 @@
 
             if (response.ok) {
                 const result = await response.json();
-                alert('Link created: ' + result.url);
+                showToast('Link created: ' + result.url, 'success');
                 form.reset();
             } else {
-                alert('Error creating link: ' + response.statusText);
+                showToast('Error creating link: ' + response.statusText, 'error');
             }
         } catch (error) {
-            alert('Error: ' + error.message);
+            showToast('Error: ' + error.message, 'error');
         }
     });
 </script>
