@@ -5,6 +5,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tonic_prost_build::configure()
         .out_dir(&out_dir)
+        .type_attribute("core.CreateLinkRequest", "#[derive(serde::Serialize, serde::Deserialize)]")
+        .field_attribute("core.CreateLinkRequest.is_private", "#[serde(default)]")
         .compile_protos(&["proto/core.proto"], &["proto/"])?;
 
     tonic_prost_build::configure()

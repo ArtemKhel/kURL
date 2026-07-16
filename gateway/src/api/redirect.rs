@@ -4,7 +4,7 @@ use axum::{
     response::Redirect,
 };
 use tonic::Code;
-use tracing::{info, instrument, warn};
+use tracing::{debug, info, instrument, warn};
 
 use crate::{
     cache::{redis_query, send_click_event},
@@ -17,6 +17,7 @@ pub async fn redirect(
     State(state): State<SharedState>,
     Path(short_code): Path<String>,
 ) -> Result<Redirect, StatusCode> {
+    debug!("redirecting");
     if let Some(url) = redis_query(&state, short_code.clone()).await {
         info!("Cache hit");
         send_click_event(&state, &short_code).await;
