@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>kURLyk - URL Shortener</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap"
+          rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+          rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+          rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#131313",
+                      "on-error-container": "#ffdad6",
+                      "outline": "#9f8e7c",
+                      "inverse-on-surface": "#313030",
+                      "surface-container-high": "#2a2a2a",
+                      "tertiary-container": "#c4c2bd",
+                      "primary": "#ffd7a9",
+                      "surface-container-highest": "#353534",
+                      "on-primary-fixed-variant": "#643f00",
+                      "on-secondary-container": "#b8b9b4",
+                      "inverse-surface": "#e5e2e1",
+                      "on-error": "#690005",
+                      "surface-bright": "#393939",
+                      "on-background": "#e5e2e1",
+                      "on-tertiary-fixed-variant": "#474743",
+                      "on-tertiary-container": "#50504c",
+                      "primary-fixed-dim": "#ffb95a",
+                      "surface-container-lowest": "#0e0e0e",
+                      "primary-fixed": "#ffddb6",
+                      "surface-tint": "#ffb95a",
+                      "secondary-container": "#484a46",
+                      "background": "#131313",
+                      "tertiary": "#e0ded9",
+                      "inverse-primary": "#845400",
+                      "on-primary": "#462a00",
+                      "surface-container-low": "#1c1b1b",
+                      "on-tertiary-fixed": "#1c1c19",
+                      "on-primary-container": "#704700",
+                      "primary-container": "#ffb347",
+                      "error-container": "#93000a",
+                      "error": "#ffb4ab",
+                      "on-surface": "#e5e2e1",
+                      "on-primary-fixed": "#2a1800",
+                      "on-secondary-fixed": "#1a1c19",
+                      "outline-variant": "#524535",
+                      "on-secondary": "#2f312e",
+                      "on-secondary-fixed-variant": "#454744",
+                      "surface-variant": "#353534",
+                      "on-tertiary": "#31302d",
+                      "tertiary-fixed": "#e5e2dd",
+                      "tertiary-fixed-dim": "#c8c6c2",
+                      "on-surface-variant": "#d6c3b0",
+                      "secondary-fixed-dim": "#c6c7c2",
+                      "surface": "#131313",
+                      "secondary-fixed": "#e3e3de",
+                      "surface-container": "#201f1f",
+                      "secondary": "#c6c7c2"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "margin-desktop": "64px",
+                      "stack-sm": "8px",
+                      "stack-md": "16px",
+                      "margin-mobile": "20px",
+                      "gutter": "24px",
+                      "container-max": "1280px",
+                      "unit": "8px",
+                      "stack-lg": "32px"
+              },
+              "fontFamily": {
+                      "label-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-lg-mobile": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "label-sm": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-md": [
+                              "Hanken Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "32px",
+                              {
+                                      "lineHeight": "38px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "40px",
+                              {
+                                      "lineHeight": "48px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+       },
+           },
+         }
+    </script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e5e2e1;
+        }
+        .ambient-glow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(255, 179, 71, 0.02);
+        }
+        .input-border {
+            border-bottom: 1px solid rgba(245, 245, 240, 0.05);
+        }
+        .input-border:focus-within {
+            border-bottom: 1px solid #ffd7a9;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-body-md text-on-surface bg-background">
+<!-- TopNavBar -->
+<header class="bg-surface-dim full-width top-0 z-50">
+    <div class="flex justify-between items-center max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop h-16">
+        <div class="flex items-center gap-stack-md">
+            <span class="font-headline-md text-headline-md font-bold text-primary tracking-tight">kURLyk</span>
+        </div>
+        <nav class="hidden md:flex gap-gutter items-center">
+            <a class="font-label-md text-label-md text-primary border-b-2 border-primary pb-1" href="#">Home</a>
+            <a class="font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors hover:text-primary transition-all duration-200"
+               href="#">My Links</a>
+            <a class="font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors hover:text-primary transition-all duration-200"
+               href="#">Global Stats</a>
+        </nav>
+        <button class="bg-primary text-on-primary font-label-md px-4 py-2 rounded-DEFAULT hover:bg-primary-container transition-colors hidden md:block">
+            Shorten
+        </button>
+        <button class="md:hidden text-primary">
+            <span class="material-symbols-outlined">menu</span>
+        </button>
+    </div>
+</header>
+<!-- Main Content -->
+<main class="flex-grow flex flex-col items-center justify-center px-margin-mobile md:px-margin-desktop py-stack-lg max-w-container-max mx-auto w-full">
+    <div class="w-full max-w-2xl flex flex-col items-center gap-stack-lg">
+        <!-- Logo -->
+        <div class="w-32 h-32 md:w-48 md:h-48 rounded-full overflow-hidden mb-stack-md">
+            <img alt="kURLyk Logo" class="w-full h-full object-cover"
+                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuDpGboW8q2RJc8Hn0cUl3uzMFJSdVu67c17uZwaEwzlCdq3bycwopv-raGRtkk3y1UxZYdgegGsmuqxoiy8B-TcCrvxboYnnr9eJ0d_knnqsskkJa_x_4B36eY0W-oM-98ETt1AwIHSsMBUvAqFSK21mDLmN22Mz6BQ9hIpE22ZgaIUqGa-OeHvNKQ6oF1fXDYJ8TD7MP7Ic3fzDyELrxcdGo4nR0HDeqz7wgPeET8AfDttg-KVnQPA"/>
+        </div>
+        <!-- Input Area -->
+        <div class="w-full bg-surface-container-high rounded-xl p-stack-md md:p-gutter ambient-glow transition-all duration-300 border border-[rgba(245,245,240,0.05)] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.4),0_2px_4px_-1px_rgba(255,179,71,0.02)]">
+            <form id="shortenForm" class="flex flex-col gap-stack-md">
+                <div class="input-border pb-2">
+                    <input id="targetUrl" class="w-full bg-transparent border-none focus:ring-0 text-body-lg text-on-surface placeholder:text-on-surface-variant/50 p-0"
+                           placeholder="Enter Target URL..." type="url" required/>
+                </div>
+                <div class="flex flex-col md:flex-row gap-stack-md md:gap-gutter">
+                    <!-- Custom Code -->
+                    <div class="flex-1 input-border pb-2">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Custom Code
+                            (Optional)</label>
+                        <div class="flex items-center">
+                            <span class="text-on-surface-variant/50 mr-1">kurl.yk/</span>
+                            <input id="customCode" class="w-full bg-transparent border-none focus:ring-0 text-body-md text-on-surface p-0"
+                                   placeholder="alias" type="text"/>
+                        </div>
+                    </div>
+                    <!-- Expiration -->
+                    <div class="flex-1 input-border pb-2">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Expiration</label>
+                        <input id="expirationDate" class="w-full bg-transparent border-none focus:ring-0 text-body-md text-on-surface p-0 [color-scheme:dark]"
+                               type="date"/>
+                    </div>
+                </div>
+                <div class="mt-stack-md flex items-center justify-between">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <div class="relative flex items-center">
+                            <input id="privateLink" class="peer sr-only" type="checkbox"/>
+                            <div class="w-10 h-6 bg-surface-container-lowest rounded-full peer-focus:ring-2 peer-focus:ring-primary/20 peer-checked:bg-primary transition-colors"></div>
+                            <div class="absolute left-1 top-1 w-4 h-4 bg-on-surface rounded-full peer-checked:translate-x-4 peer-checked:bg-on-primary transition-transform"></div>
+                        </div>
+                        <span class="font-label-md text-label-md text-on-surface-variant">Private Link</span>
+                    </label>
+                    <button type="submit" class="bg-primary text-on-primary font-label-md px-6 py-3 rounded-DEFAULT hover:bg-primary-container transition-all active:scale-95 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[20px]">link</span>
+                        Shorten
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-dim full-width bottom-0 mt-auto">
+    <div class="flex flex-col md:flex-row justify-between items-center max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg gap-stack-md">
+        <div class="font-label-md text-label-md font-bold text-on-surface">
+            kURLyk
+        </div>
+        <div class="flex gap-stack-md opacity-80 hover:opacity-100 transition-opacity">
+            <a class="font-label-sm text-label-sm text-on-tertiary-container hover:text-primary underline transition-all"
+               href="#">API</a>
+        </div>
+    </div>
+</footer>
+<script>
+    const form = document.getElementById('shortenForm');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const targetUrl = document.getElementById('targetUrl').value;
+        const customCode = document.getElementById('customCode').value;
+        const expirationDate = document.getElementById('expirationDate').value;
+        const privateLink = document.getElementById('privateLink').checked;
+
+        const payload = {
+            target: targetUrl,
+            short_code: customCode || undefined,
+            expiration: expirationDate || undefined,
+            private: privateLink
+        };
+
+        try {
+            const response = await fetch('/api/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                alert('Link created: ' + result.url);
+                form.reset();
+            } else {
+                alert('Error creating link: ' + response.statusText);
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    });
+</script>
+</body>
+</html>

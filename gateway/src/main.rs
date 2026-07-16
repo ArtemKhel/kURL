@@ -47,5 +47,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     axum::serve(listener, app)
         .with_graceful_shutdown(common::shutdown(async {}))
         .await?;
+
     Ok(())
 }
