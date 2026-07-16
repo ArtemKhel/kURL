@@ -33,6 +33,10 @@ impl Persistence {
     ) {
         task_tracker.spawn(async move {
             let persistence = Persistence::new(db, redis);
+            if let Err(e) = persistence.rehydrate().await {
+                error!(error = %e, "rehydration failed");
+                return;
+            }
             let mut ticker = tokio::time::interval(FLUSH_INTERVAL);
             loop {
                 tokio::select! {
@@ -52,6 +56,95 @@ impl Persistence {
                 }
             }
         });
+    }
+
+    /// Repopulates Redis's day-bucket hashes from Postgres's snapshot tables
+    #[instrument(skip(self))]
+    pub async fn rehydrate(&self) -> anyhow::Result<()> {
+        let window_start = (chrono::Utc::now() - Duration::days(ROLLING_WINDOW_DAYS)).date_naive();
+        self.rehydrate_global(window_start).await;
+        self.rehydrate_links(window_start).await;
+        Ok(())
+    }
+
+    async fn rehydrate_global(&self, window_start: NaiveDate) {
+        let snapshot = match db::get_global_daily_clicks_since(&self.db, window_start).await {
+            Ok(rows) => rows,
+            Err(e) => return log_db_error(&e, "get_global_daily_clicks_since (rehydrate)"),
+        };
+        if snapshot.is_empty() {
+            return;
+        }
+
+        let key = RedisKeys::global_stats_key();
+        let mut conn = match self.redis.get().await {
+            Ok(conn) => conn,
+            Err(e) => return warn!(error = %e, "failed to get redis connection for rehydrate"),
+        };
+
+        let existing: HashMap<String, String> = conn.hgetall(&key).await.unwrap_or_default();
+        let missing: Vec<(String, String)> = snapshot
+            .into_iter()
+            .filter(|(date, _)| !existing.contains_key(&date.to_string()))
+            .map(|(date, clicks)| (date.to_string(), clicks.to_string()))
+            .collect();
+
+        if missing.is_empty() {
+            return debug!("global day-buckets already present in redis, nothing to rehydrate");
+        }
+
+        match conn.hset_multiple(&key, &missing).await {
+            Ok(()) => info!(fields = missing.len(), "rehydrated global day-buckets from postgres"),
+            Err(e) => warn!(error = %e, "failed to write rehydrated global day-buckets"),
+        }
+    }
+
+    async fn rehydrate_links(&self, window_start: NaiveDate) {
+        let snapshot = match db::get_link_daily_clicks_since(&self.db, window_start).await {
+            Ok(rows) => rows, // Vec<(short_code, NaiveDate, i64)>
+            Err(e) => return log_db_error(&e, "get_link_daily_clicks_since (rehydrate)"),
+        };
+        if snapshot.is_empty() {
+            return;
+        }
+
+        let mut by_link: HashMap<String, Vec<(NaiveDate, i64)>> = HashMap::new();
+        for (code, date, clicks) in snapshot {
+            by_link.entry(code).or_default().push((date, clicks));
+        }
+
+        let mut conn = match self.redis.get().await {
+            Ok(conn) => conn,
+            Err(e) => return warn!(error = %e, "failed to get redis connection for rehydrate"),
+        };
+
+        let mut rehydrated = 0usize;
+        // todo: pipeline maybe?
+        for (code, rows) in by_link {
+            let key = RedisKeys::link_stats_key(&code);
+            let existing: HashMap<String, String> = conn.hgetall(&key).await.unwrap_or_default();
+
+            let missing: Vec<(String, String)> = rows
+                .into_iter()
+                .filter(|(date, _)| !existing.contains_key(&date.to_string()))
+                .map(|(date, clicks)| (date.to_string(), clicks.to_string()))
+                .collect();
+
+            if missing.is_empty() {
+                continue;
+            }
+            match conn.hset_multiple(&key, &missing).await {
+                Ok(()) => rehydrated += 1,
+                Err(e) => warn!(error = %e, %code, "failed to write rehydrated link day-buckets"),
+            }
+        }
+
+        if rehydrated > 0 {
+            info!(
+                rehydrated_links = rehydrated,
+                "rehydrated link day-buckets from postgres"
+            );
+        }
     }
 
     /// Reads every `stats:link:*` hash in Redis, trims the old ones

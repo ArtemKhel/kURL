@@ -26,7 +26,7 @@ impl RedisStats {
             .await
     }
 
-    #[instrument(skip(conn))]
+    #[instrument(skip_all)]
     pub async fn last_clicked_at_batch(
         conn: &mut deadpool_redis::Connection,
         short_codes: &[String],

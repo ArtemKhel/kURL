@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::NaiveDate;
 pub use common::db_utils::DbError;
 use tracing::instrument;
 
@@ -50,32 +51,7 @@ pub async fn update_global_daily_clicks(
 }
 
 #[instrument(skip_all)]
-pub async fn update_link_total_clicks(
-    exec: impl sqlx::PgExecutor<'_>,
-    short_codes: &[String],
-    click_counts: &[i64],
-    click_ats: &[chrono::DateTime<chrono::Utc>],
-) -> Result<(), DbError> {
-    sqlx::query!(
-        r#"
-            update links as l
-            set click_count = l.click_count + d.click_count,
-                last_clicked_at = greatest(l.last_clicked_at, d.last_clicked_at)
-            from unnest($1::text[], $2::bigint[], $3::timestamptz[]) as d(short_code, click_count, last_clicked_at)
-            where l.short_code = d.short_code
-        "#,
-        short_codes,
-        click_counts,
-        click_ats
-    )
-    .execute(exec)
-    .await
-    .map(|_| ())
-    .map_err(DbError::from)
-}
-
-#[instrument(skip_all)]
-pub async fn update_total_clicks(exec: impl sqlx::PgExecutor<'_>, count: i64) -> Result<(), DbError> {
+pub async fn update_global_click_count(exec: impl sqlx::PgExecutor<'_>, count: i64) -> Result<(), DbError> {
     sqlx::query!(
         r#"
             update analytics_global as g
@@ -154,6 +130,7 @@ pub async fn update_link_total_and_last_click(
             set click_count = l.click_count + d.click_count,
                 last_clicked_at = greatest(l.last_clicked_at, d.last_clicked_at)
             from unnest($1::text[], $2::bigint[], $3::timestamptz[]) as d(short_code, click_count, last_clicked_at)
+            where l.short_code = d.short_code
         "#,
         short_codes,
         click_count_deltas,
@@ -165,17 +142,38 @@ pub async fn update_link_total_and_last_click(
     .map_err(DbError::from)
 }
 
-#[instrument(skip_all)]
-pub async fn update_global_click_count(exec: impl sqlx::PgExecutor<'_>, count: i64) -> Result<(), DbError> {
-    sqlx::query!(
+pub(crate) async fn get_global_daily_clicks_since(
+    exec: impl sqlx::PgExecutor<'_>,
+    date: NaiveDate,
+) -> Result<Vec<(NaiveDate, i64)>, DbError> {
+    sqlx::query_as!(
+        GlobalDailyStats,
         r#"
-            update analytics_global
-            set total_clicks = total_clicks + $1
+            select day, clicks from global_daily_clicks
+            where day >= $1
         "#,
-        count
+        date
     )
-    .execute(exec)
+    .fetch_all(exec)
     .await
-    .map(|_| ())
+    .map(|rows| rows.into_iter().map(|s| (s.day, s.clicks)).collect())
+    .map_err(DbError::from)
+}
+
+pub(crate) async fn get_link_daily_clicks_since(
+    exec: impl sqlx::PgExecutor<'_>,
+    date: NaiveDate,
+) -> Result<Vec<(String, NaiveDate, i64)>, DbError> {
+    sqlx::query_as!(
+        LinkDailyStats,
+        r#"
+            select short_code, day, clicks from link_daily_clicks
+            where day >= $1
+        "#,
+        date
+    )
+    .fetch_all(exec)
+    .await
+    .map(|rows| rows.into_iter().map(|s| (s.short_code, s.day, s.clicks)).collect())
     .map_err(DbError::from)
 }
