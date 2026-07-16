@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::db_utils::DbError;
+pub use common::db_utils::DbError;
 use tracing::instrument;
 
 // todo: check if update_* doesn't lose/overrride data

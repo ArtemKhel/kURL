@@ -4,7 +4,7 @@ use redis::{
     streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::{redis_persistence::Persistence, redis_stats::RedisStats};
 
@@ -58,7 +58,7 @@ impl EventConsumer {
             let reply = match reply {
                 Ok(Some(r)) => r,
                 Ok(None) => {
-                    debug!("No new events in Redis stream, continuing");
+                    trace!("No new events in Redis stream, continuing");
                     continue;
                 }
                 Err(e) => {

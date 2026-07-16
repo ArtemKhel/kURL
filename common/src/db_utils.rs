@@ -24,6 +24,10 @@ pub enum DbError {
     Other(sqlx::Error),
 }
 
+impl DbError {
+    pub fn is_transient(&self) -> bool { matches!(self, DbError::Transient(_)) }
+}
+
 impl From<sqlx::Error> for DbError {
     fn from(e: sqlx::Error) -> Self {
         match &e {
