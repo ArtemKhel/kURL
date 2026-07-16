@@ -1,15 +1,15 @@
+mod api;
 mod cache;
 mod grpc;
 pub mod init;
-mod routes;
 mod state;
 pub mod web;
 
 use std::sync::Arc;
 
 use axum::{
-    Router,
     routing::{delete, get, post},
+    Router,
 };
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
@@ -39,10 +39,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .without_v07_checks()
         .layer(TraceLayer::new_for_http()) //todo: opts, feature flags
         .route("/", get(web::web::hello))
-        .route("/api/create", post(routes::create::create))
-        .route("/api/delete", delete(routes::delete::delete))
-        .route("/s/{code}", get(routes::redirect::redirect))
-        .fallback(routes::not_found)
+        .route("/api/create", post(api::create::create))
+        .route("/api/delete", delete(api::delete::delete))
+        .route("/s/{code}", get(api::redirect::redirect))
+        .fallback(web::not_found)
         .with_state(state);
     axum::serve(listener, app)
         .with_graceful_shutdown(common::shutdown(async {}))
