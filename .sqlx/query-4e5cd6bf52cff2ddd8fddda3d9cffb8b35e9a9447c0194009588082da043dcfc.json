@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update links as l\n            set click_count = l.click_count + d.click_count,\n                last_clicked_at = greatest(l.last_clicked_at, d.last_clicked_at)\n            from unnest($1::text[], $2::bigint[], $3::timestamptz[]) as d(short_code, click_count, last_clicked_at)\n            where l.short_code = d.short_code\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8Array",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4e5cd6bf52cff2ddd8fddda3d9cffb8b35e9a9447c0194009588082da043dcfc"
+}

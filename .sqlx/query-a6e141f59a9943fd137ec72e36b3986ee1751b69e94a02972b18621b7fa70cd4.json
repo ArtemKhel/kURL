@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select short_code, day, clicks from link_daily_clicks\n            where (short_code, day) in (select * from unnest($1::text[], $2::date[]))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "short_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "link_daily_clicks",
+            "name": "short_code"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "day",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "link_daily_clicks",
+            "name": "day"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "clicks",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "link_daily_clicks",
+            "name": "clicks"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "DateArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a6e141f59a9943fd137ec72e36b3986ee1751b69e94a02972b18621b7fa70cd4"
+}

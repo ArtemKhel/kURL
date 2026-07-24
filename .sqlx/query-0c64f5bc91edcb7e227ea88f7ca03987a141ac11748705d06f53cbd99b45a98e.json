@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update analytics_global as g\n            set total_clicks = g.total_clicks + $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0c64f5bc91edcb7e227ea88f7ca03987a141ac11748705d06f53cbd99b45a98e"
+}

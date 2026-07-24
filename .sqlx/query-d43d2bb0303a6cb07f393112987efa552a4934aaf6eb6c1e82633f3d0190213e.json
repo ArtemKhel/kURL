@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select target from links where short_code = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "target",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "links",
+            "name": "target"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d43d2bb0303a6cb07f393112987efa552a4934aaf6eb6c1e82633f3d0190213e"
+}

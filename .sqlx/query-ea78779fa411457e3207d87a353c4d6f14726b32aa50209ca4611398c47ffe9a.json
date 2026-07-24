@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into global_daily_clicks as g (day, clicks)\n            select * from unnest($1::date[], $2::bigint[])\n            on conflict (day) do update set clicks = greatest(excluded.clicks, g.clicks)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "DateArray",
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ea78779fa411457e3207d87a353c4d6f14726b32aa50209ca4611398c47ffe9a"
+}

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into link_daily_clicks as l (short_code, day, clicks)\n            select * from unnest($1::text[], $2::date[], $3::bigint[])\n            on conflict (short_code, day) do update set clicks = greatest(excluded.clicks, l.clicks)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "DateArray",
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4ec2eb4552ec83a13f88c3a2af8f44c05472b6106d195a52b2fe2fa25e25847d"
+}

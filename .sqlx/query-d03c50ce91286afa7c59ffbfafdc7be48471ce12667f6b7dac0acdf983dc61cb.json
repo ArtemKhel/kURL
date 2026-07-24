@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select day, clicks from global_daily_clicks\n            where day >= $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "day",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "global_daily_clicks",
+            "name": "day"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "clicks",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "global_daily_clicks",
+            "name": "clicks"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d03c50ce91286afa7c59ffbfafdc7be48471ce12667f6b7dac0acdf983dc61cb"
+}
