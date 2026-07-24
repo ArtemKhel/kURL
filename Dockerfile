@@ -21,12 +21,14 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     cargo install cargo-chef --locked
 
+
 FROM chef AS planner
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     cargo chef prepare --recipe-path recipe.json
+
 
 FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
@@ -45,17 +47,20 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     && mkdir -p /app/bin \
     && cp target/debug/gateway target/debug/core target/debug/analytics /app/bin/
 
+
 FROM gcr.io/distroless/cc-debian13 AS gateway
 COPY --from=builder /app/bin/gateway /usr/local/bin/gateway
 USER nonroot:nonroot
 WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/gateway"]
 
+
 FROM gcr.io/distroless/cc-debian13 AS core
 COPY --from=builder /app/bin/core /usr/local/bin/core
 USER nonroot:nonroot
 WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/core"]
+
 
 FROM gcr.io/distroless/cc-debian13 AS analytics
 COPY --from=builder /app/bin/analytics /usr/local/bin/analytics

@@ -7,4 +7,3 @@ pub fn random_string(len: usize) -> String {
         .map(char::from)
         .collect()
 }
-

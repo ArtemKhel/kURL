@@ -9,8 +9,8 @@ use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Context;
 use axum::{
-    routing::{delete, get, post},
     Router,
+    routing::{delete, get, post},
 };
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
