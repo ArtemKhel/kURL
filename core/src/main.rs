@@ -15,6 +15,7 @@ pub mod db;
 mod grpc;
 pub mod init;
 mod state;
+mod utils;
 
 pub(crate) type Config = common::config::CoreConfig;
 

@@ -4,23 +4,15 @@ use common::db_utils::DbError;
 use proto::core::{
     link_service_server, CreateLinkRequest, CreateLinkResponse, DeleteLinkRequest, GetLinkRequest, GetLinkResponse,
 };
-use rand::prelude::*;
 use tonic::{Request, Response, Status};
 use tracing::{error, info, instrument};
 
 use crate::state::AppState;
+use crate::utils;
 
 #[derive(Debug)]
 pub struct LinkService {
     pub state: Arc<AppState>,
-}
-
-fn random_string(len: usize) -> String {
-    rand::rng()
-        .sample_iter(&rand::distr::Alphanumeric)
-        .take(len)
-        .map(char::from)
-        .collect()
 }
 
 #[tonic::async_trait]
@@ -29,7 +21,7 @@ impl link_service_server::LinkService for LinkService {
     async fn create_link(&self, request: Request<CreateLinkRequest>) -> Result<Response<CreateLinkResponse>, Status> {
         let CreateLinkRequest { short_code, target, .. } = request.into_inner();
 
-        let short_code = short_code.unwrap_or_else(|| random_string(6));
+        let short_code = short_code.unwrap_or_else(|| utils::random_string(6));
 
         crate::db::create_link(&self.state.db_pool, &short_code, &target)
             .await
