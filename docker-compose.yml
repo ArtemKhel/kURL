@@ -1,4 +1,44 @@
 services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: gateway
+    restart: unless-stopped
+    depends_on:
+      - core
+    working_dir: /usr/local/bin
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./config:/usr/local/bin/config:ro
+
+  core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: core
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    working_dir: /usr/local/bin
+    volumes:
+      - ./config:/usr/local/bin/config:ro
+
+  analytics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: analytics
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - db
+    working_dir: /usr/local/bin
+    volumes:
+      - ./config:/usr/local/bin/config:ro
+
   redis:
     image: redis:8-alpine
     container_name: redis
@@ -8,7 +48,7 @@ services:
     volumes:
       - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
       # - redis-data:/data
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
 
   db:
     image: postgres:18-alpine
@@ -23,7 +63,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 10s
       retries: 5

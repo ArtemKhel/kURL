@@ -5,8 +5,9 @@ pub mod init;
 mod state;
 pub mod web;
 
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
+use anyhow::Context;
 use axum::{
     routing::{delete, get, post},
     Router,
@@ -27,7 +28,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (redis, grpc_client) = init(&config)
         .await
         .expect("Failed to connect to database or gRPC server");
-    let listener = TcpListener::bind(config.gateway.to_string()).await?;
+
+    let addr = format!("0.0.0.0:{}", config.core.port)
+        .parse::<SocketAddr>()
+        .context("Failed to parse socket address")?;
+    let listener = TcpListener::bind(addr).await?;
 
     let state = Arc::new(AppState {
         config,

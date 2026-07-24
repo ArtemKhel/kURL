@@ -5,7 +5,8 @@ use std::{
 
 use config::{Config, ConfigError, File};
 use serde::{Deserialize, Deserializer};
-use tracing::{error, info};
+use tracing::info;
+
 //  SHARED CONFIGS
 
 #[derive(Debug, Deserialize, Clone)]
@@ -141,7 +142,7 @@ impl AppConfig {
             .set_default("analytics.read_block_secs", 5)?
             .set_default("analytics.flush_interval_secs", 60)?
             // Priority 2: TOML file (if it exists)
-            .add_source(File::with_name("config/config.toml").required(false))
+            .add_source(File::with_name("./config/config.toml").required(false))
             // Priority 3 (highest): Environment variables
             .add_source(config::Environment::with_prefix("APP").try_parsing(true).separator("_"))
             .build()?;
@@ -149,7 +150,6 @@ impl AppConfig {
         config
             .try_deserialize()
             .inspect(|config| info!(?config, "config loaded"))
-            .inspect_err(|error| error!(?error, "failed to load config"))
     }
 }
 
@@ -185,8 +185,8 @@ impl Display for ServiceAddress {
 }
 
 impl_display!(RedisConfig, "redis://{}:{}", host, port);
-impl_display!(GatewayServiceConfig, "{}:{}", host, port);
-impl_display!(CoreServiceConfig, "{}:{}", host, port);
+// impl_display!(GatewayServiceConfig, "{}:{}", host, port);
+impl_display!(CoreServiceConfig, "grpc://{}:{}", host, port);
 impl_display!(
     DatabaseConfig,
     "postgresql://{}:{}@{}:{}/{}",

@@ -1,5 +1,5 @@
 use std::{net::SocketAddr, sync::Arc};
-
+use anyhow::Context;
 use axum::routing::get;
 use proto::core::link_service_server::LinkServiceServer;
 use sqlx::migrate::Migrator;
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config: config.clone(),
     });
 
-    let addr = config.core.to_string().parse::<SocketAddr>()?;
+    let addr = format!("0.0.0.0:{}", config.core.port).parse::<SocketAddr>().context("Failed to parse socket address")?;
 
     let grpc = ServiceBuilder::new()
         // .layer()

@@ -1,23 +1,23 @@
 [redis]
-host = "127.0.0.1"
+host = "redis"
 port = 6379
 
 [redis.streams]
 events = "Events"
 
 [database]
-host = "127.0.0.1"
+host = "db"
 port = 5432
 user = "postgres"
 password = "postgres"
 db_name = "kurlyk"
 
 [gateway]
-host = "127.0.0.1"
+host = "gateway"
 port = 3000
 
 [core]
-host = "127.0.0.1"
+host = "core"
 port = 3001
 
 [analytics]

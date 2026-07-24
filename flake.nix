@@ -54,6 +54,7 @@
             buildInputs = [
               toolchain
               cargo-expand
+              cargo-chef
               sqlx-cli
 
               protobuf
@@ -61,6 +62,7 @@
             ];
 
             RUST_SRC_PATH = "${toolchain}/lib/rustlib/src/rust/library";
+            SQLX_OFFLINE="true";
           });
       };
     };
