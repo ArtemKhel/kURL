@@ -8,25 +8,26 @@ pub struct CreateLinkRequest {
     pub target: ::prost::alloc::string::String,
     #[prost(string, optional, tag = "3")]
     pub expiration: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(bool, tag = "4")]
-    #[serde(default)]
-    pub is_private: bool,
 }
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateLinkResponse {
     #[prost(string, tag = "1")]
     pub short_code: ::prost::alloc::string::String,
 }
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetLinkRequest {
     #[prost(string, tag = "1")]
     pub short_code: ::prost::alloc::string::String,
 }
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetLinkResponse {
     #[prost(string, tag = "1")]
     pub target: ::prost::alloc::string::String,
 }
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DeleteLinkRequest {
     #[prost(string, tag = "1")]

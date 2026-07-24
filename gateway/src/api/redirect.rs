@@ -29,7 +29,7 @@ pub async fn redirect(
         // todo: permanent with expire?
         Ok(target) => {
             send_click_event(&state, &short_code).await;
-            Ok(Redirect::permanent(&target))
+            Ok(Redirect::permanent(&target.target))
         }
         Err(e) => match e.code() {
             Code::NotFound => {

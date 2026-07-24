@@ -13,7 +13,6 @@ message CreateLinkRequest {
   optional string short_code = 1;
   string target = 2;
   optional string expiration = 3;
-  bool is_private = 4;
 }
 
 message CreateLinkResponse {
