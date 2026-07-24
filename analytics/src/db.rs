@@ -15,9 +15,9 @@ pub async fn update_link_daily_clicks(
 ) -> Result<(), DbError> {
     sqlx::query!(
         r#"
-            insert into link_daily_clicks (short_code, day, clicks)
+            insert into link_daily_clicks as l (short_code, day, clicks)
             select * from unnest($1::text[], $2::date[], $3::bigint[])
-            on conflict (short_code, day) do update set clicks = excluded.clicks
+            on conflict (short_code, day) do update set clicks = greatest(excluded.clicks, l.clicks)
         "#,
         &link_short_codes,
         &link_dates,
@@ -37,9 +37,9 @@ pub async fn update_global_daily_clicks(
 ) -> Result<(), DbError> {
     sqlx::query!(
         r#"
-            insert into global_daily_clicks (day, clicks)
+            insert into global_daily_clicks as g (day, clicks)
             select * from unnest($1::date[], $2::bigint[])
-            on conflict (day) do update set clicks = excluded.clicks
+            on conflict (day) do update set clicks = greatest(excluded.clicks, g.clicks)
         "#,
         &dates,
         &clicks
