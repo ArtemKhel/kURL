@@ -1,0 +1,19 @@
+// Discovers all running containers via the docker socket and tails their
+// json-file logs, forwarding to Loki. Verify syntax against Alloy's current
+// docs if this drifts — it's a young component and the config surface moves.
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+loki.source.docker "default" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.containers.targets
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

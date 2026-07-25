@@ -28,3 +28,4 @@ flush_interval_secs = 10
 
 [logging]
 level = "info"
+otlp_endpoint = "http://tempo:4317"

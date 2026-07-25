@@ -39,6 +39,7 @@ pub struct DatabaseConfig {
 #[serde(deny_unknown_fields)]
 pub struct LoggingConfig {
     pub level: String,
+    pub otlp_endpoint: Option<String>,
 }
 
 //  SERVICE ADDRESS

@@ -9,8 +9,8 @@ use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Context;
 use axum::{
-    Router,
     routing::{delete, get, post},
+    Router,
 };
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
@@ -19,17 +19,19 @@ use tracing::info;
 use crate::{init::init, state::AppState};
 
 pub(crate) type Config = common::config::GatewayConfig;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config: Config = common::config::AppConfig::load()?.into();
-    common::logging::init_tracing(&config.logging.level);
+    let trace_provider = common::logging::init_tracing(&config.logging, "gateway");
+    common::logging::init_metrics(9100);
     info!(?config);
 
     let (redis, grpc_client) = init(&config)
         .await
         .expect("Failed to connect to database or gRPC server");
 
-    let addr = format!("0.0.0.0:{}", config.core.port)
+    let addr = format!("0.0.0.0:{}", config.gateway.port)
         .parse::<SocketAddr>()
         .context("Failed to parse socket address")?;
     let listener = TcpListener::bind(addr).await?;
@@ -50,8 +52,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .fallback(web::not_found)
         .with_state(state);
     axum::serve(listener, app)
-        .with_graceful_shutdown(common::shutdown(async {}))
+        .with_graceful_shutdown(common::shutdown(async move || {eprintln!("shutting down")}))
         .await?;
 
+    let _ = trace_provider.shutdown();
     Ok(())
 }

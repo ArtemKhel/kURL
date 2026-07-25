@@ -1,6 +1,10 @@
 use tokio::signal;
+use tracing::info;
 
-pub async fn shutdown(on_shutdown: impl Future<Output = ()>) {
+pub async fn shutdown<F, Fut>(on_shutdown: F)
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = ()>, {
     let ctrl_c = async {
         signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
     };
@@ -16,7 +20,8 @@ pub async fn shutdown(on_shutdown: impl Future<Output = ()>) {
         _ = ctrl_c => {},
         _ = terminate => {},
     }
-    println!("Shutting down...");
-    on_shutdown.await;
-    println!("Shutdown complete.");
+
+    info!("Shutting down...");
+    on_shutdown().await;
+    info!("Shutdown complete");
 }
