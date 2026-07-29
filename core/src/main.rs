@@ -28,8 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config: Config = common::config::AppConfig::load()
         .expect("Failed to load application config")
         .into();
-    let trace_provider = common::logging::init_tracing(&config.logging, "core");
-    common::logging::init_metrics(9100);
+    let otel_guard = common::logging::init_tracing(&config.logging, "core");
     debug!(?config);
 
     let (db_pool, redis) = init(&config).await.expect("Failed to initialize DB or Redis pool");
@@ -60,6 +59,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_graceful_shutdown(common::shutdown(async move || {}))
         .await;
 
-    let _ = trace_provider.shutdown();
+    drop(otel_guard);
     Ok(())
 }

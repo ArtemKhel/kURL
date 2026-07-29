@@ -16,8 +16,7 @@ type Config = AnalyticsConfig;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = common::config::load::<AnalyticsConfig>();
-    let trace_provider = common::logging::init_tracing(&config.logging, "analytics");
-    common::logging::init_metrics(9100);
+    let otel_guard = common::logging::init_tracing(&config.logging, "analytics");
     info!(?config);
 
     let task_tracker = TaskTracker::new();
@@ -31,10 +30,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     task_tracker.spawn(async move { event_consumer.run(consumer_tt, consumer_shutdown).await });
 
     common::shutdown(async move || {
-        let _ = trace_provider.shutdown();
         shutdown.cancel();
         task_tracker.close();
         task_tracker.wait().await;
+        drop(otel_guard);
     })
     .await;
     Ok(())

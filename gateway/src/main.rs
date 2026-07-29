@@ -23,8 +23,7 @@ pub(crate) type Config = common::config::GatewayConfig;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config: Config = common::config::AppConfig::load()?.into();
-    let trace_provider = common::logging::init_tracing(&config.logging, "gateway");
-    common::logging::init_metrics(9100);
+    let otel_guard = common::logging::init_tracing(&config.logging, "gateway");
     info!(?config);
 
     let (redis, grpc_client) = init(&config)
@@ -52,9 +51,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .fallback(web::not_found)
         .with_state(state);
     axum::serve(listener, app)
-        .with_graceful_shutdown(common::shutdown(async move || {eprintln!("shutting down")}))
+        .with_graceful_shutdown(common::shutdown(async move || eprintln!("shutting down")))
         .await?;
 
-    let _ = trace_provider.shutdown();
+    drop(otel_guard);
     Ok(())
 }
