@@ -13,7 +13,11 @@ pub async fn create(
 ) -> Result<Json<CreateLinkResponse>, StatusCode> {
     match grpc::core_create_link(&state, create_req).await {
         // todo: actual url
-        Ok(response) => Ok(Json(response)),
+        Ok(response) => {
+            info!(short_code = response.short_code, "Link created successfully");
+            counter!("gateway_links_created").increment(1);
+            Ok(Json(response))
+        }
         Err(e) => match e.code() {
             Code::AlreadyExists => Err(StatusCode::CONFLICT),
             _ => {

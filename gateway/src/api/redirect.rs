@@ -18,15 +18,14 @@ pub async fn redirect(
     State(state): State<SharedState>,
     Path(short_code): Path<String>,
 ) -> Result<Redirect, StatusCode> {
-    debug!("redirecting");
     if let Some(url) = redis_query(&state, short_code.clone()).await {
         info!("Cache hit");
         counter!("gateway_redirects").increment(1);
+        counter!("gateway_cache_hits").increment(1);
         send_click_event(&state, &short_code).await;
         return Ok(Redirect::permanent(&url));
     }
 
-    info!("Cache miss");
     match grpc::core_get_link(&state, short_code.clone()).await {
         // todo: permanent with expire?
         Ok(target) => {
