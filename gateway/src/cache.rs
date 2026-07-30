@@ -6,9 +6,18 @@ use crate::state::SharedState;
 
 #[instrument(skip(state))]
 pub async fn redis_query(state: &SharedState, short_code: String) -> Option<String> {
-    // todo: unwraps
-    let mut redis_conn = state.redis.get().await.unwrap();
-    redis_conn.get(RedisKeys::link_cache_key(&short_code)).await.unwrap()
+    let mut redis_conn = state
+        .redis
+        .get()
+        .await
+        .map_err(|e| error!(error=%e, "Failed to get Redis connection"))
+        .ok()?;
+
+    redis_conn
+        .get(RedisKeys::link_cache_key(&short_code))
+        .await
+        .map_err(|e| error!(error=%e, "Redis query failed"))
+        .ok()?
 }
 
 #[instrument(skip(state))]
