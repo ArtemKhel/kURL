@@ -822,6 +822,7 @@ dependencies = [
  "chrono",
  "common",
  "deadpool-redis",
+ "metrics",
  "proto",
  "redis",
  "serde",

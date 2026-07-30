@@ -1,7 +1,8 @@
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{extract::State, http::StatusCode, Json};
+use metrics::counter;
 use proto::core::{CreateLinkRequest, CreateLinkResponse};
 use tonic::Code;
-use tracing::{debug, instrument, warn};
+use tracing::{info, instrument, warn};
 
 use crate::{grpc, state::SharedState};
 
@@ -10,7 +11,6 @@ pub async fn create(
     State(state): State<SharedState>,
     Json(create_req): Json<CreateLinkRequest>,
 ) -> Result<Json<CreateLinkResponse>, StatusCode> {
-    debug!("creating a new link");
     match grpc::core_create_link(&state, create_req).await {
         // todo: actual url
         Ok(response) => Ok(Json(response)),

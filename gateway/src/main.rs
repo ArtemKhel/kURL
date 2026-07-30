@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (redis, grpc_client) = init(&config)
         .await
-        .expect("Failed to connect to database or gRPC server");
+        .expect("Failed to connect to Redis or gRPC server");
 
     let addr = format!("0.0.0.0:{}", config.gateway.port)
         .parse::<SocketAddr>()

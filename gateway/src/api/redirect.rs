@@ -3,6 +3,7 @@ use axum::{
     http::StatusCode,
     response::Redirect,
 };
+use metrics::counter;
 use tonic::Code;
 use tracing::{debug, info, instrument, warn};
 
@@ -20,6 +21,7 @@ pub async fn redirect(
     debug!("redirecting");
     if let Some(url) = redis_query(&state, short_code.clone()).await {
         info!("Cache hit");
+        counter!("gateway_redirects").increment(1);
         send_click_event(&state, &short_code).await;
         return Ok(Redirect::permanent(&url));
     }
@@ -28,6 +30,7 @@ pub async fn redirect(
     match grpc::core_get_link(&state, short_code.clone()).await {
         // todo: permanent with expire?
         Ok(target) => {
+            counter!("gateway_redirects").increment(1);
             send_click_event(&state, &short_code).await;
             Ok(Redirect::permanent(&target.target))
         }
