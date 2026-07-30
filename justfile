@@ -8,6 +8,12 @@ up-build:
 down:
     docker compose down
 
+fmt:
+    cargo fmt
+clippy:
+    cargo clippy
+check: fmt clippy
+
 open: up
     xdg-open 'http://localhost:3000'
 grafana: up

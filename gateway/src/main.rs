@@ -9,8 +9,8 @@ use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Context;
 use axum::{
-    routing::{delete, get, post},
     Router,
+    routing::{delete, get, post},
 };
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
@@ -26,9 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let otel_guard = common::logging::init_tracing(&config.logging, "gateway");
     info!(?config);
 
-    let (redis, grpc_client) = init(&config)
-        .await
-        .expect("Failed to connect to Redis or gRPC server");
+    let (redis, grpc_client) = init(&config).await.expect("Failed to connect to Redis or gRPC server");
 
     let addr = format!("0.0.0.0:{}", config.gateway.port)
         .parse::<SocketAddr>()

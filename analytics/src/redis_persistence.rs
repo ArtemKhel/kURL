@@ -189,11 +189,11 @@ impl Persistence {
                 clicks.push(count);
             }
 
-            if !stale.is_empty() {
-                if let Err(e) = cmd_conn.hdel(&key, &stale).await {
-                    warn!(error = %e, %key, "failed to trim stale day-buckets");
-                }
-            }
+            if !stale.is_empty()
+                && let Err(e) = cmd_conn.hdel(&key, &stale).await
+            {
+                warn!(error = %e, %key, "failed to trim stale day-buckets");
+            };
         }
 
         Ok((short_codes, dates, clicks))
@@ -210,10 +210,10 @@ impl Persistence {
         let fields = conn.hgetall(&key).await?;
         let (fresh, stale) = partition_daily_counts(fields, cutoff);
 
-        if !stale.is_empty() {
-            if let Err(e) = conn.hdel(&key, &stale).await {
-                warn!(error = %e, "failed to trim stale global day-buckets");
-            }
+        if !stale.is_empty()
+            && let Err(e) = conn.hdel(&key, &stale).await
+        {
+            warn!(error = %e, "failed to trim stale global day-buckets");
         }
 
         Ok(fresh.into_iter().unzip())
