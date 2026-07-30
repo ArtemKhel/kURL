@@ -6,6 +6,7 @@ pub struct CreateLinkRequest {
     pub short_code: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag = "2")]
     pub target: ::prost::alloc::string::String,
+    /// todo: timestamp?
     #[prost(string, optional, tag = "3")]
     pub expiration: ::core::option::Option<::prost::alloc::string::String>,
 }
