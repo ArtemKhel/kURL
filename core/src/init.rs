@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anyhow::Context;
 use tracing::{info, instrument};
 
 #[instrument]
@@ -8,8 +9,11 @@ pub async fn init(config: &crate::Config) -> Result<(sqlx::PgPool, deadpool_redi
         async {
             let db_pool = common::db_utils::connect(config.database.to_string().as_str())
                 .await
-                .expect("Failed to connect to database");
-            crate::MIGRATOR.run(&db_pool).await.expect("Failed to apply migrations");
+                .context("Failed to connect to database")?;
+            crate::MIGRATOR
+                .run(&db_pool)
+                .await
+                .context("Failed to apply migrations")?;
             info!("Connected to database: {}", config.database.to_string());
             Ok(db_pool)
         },

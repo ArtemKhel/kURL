@@ -24,10 +24,10 @@ impl link_service_server::LinkService for LinkService {
 
         crate::db::create_link(&self.state.db_pool, &short_code, &target)
             .await
-            .map_err(|err| match err {
+            .map_err(|e| match e {
                 DbError::Conflict(_) => Status::already_exists("Short code already exists"),
                 _ => {
-                    error!("Database error while creating link");
+                    error!(error=%e, "Database error while creating link");
                     Status::internal("Failed to create link")
                 }
             })?;
@@ -38,8 +38,7 @@ impl link_service_server::LinkService for LinkService {
             short_code.clone(),
             target,
             self.state.config.redis.cache_ttl,
-        )
-        .await;
+        );
 
         Ok(Response::new(CreateLinkResponse { short_code }))
     }
@@ -50,10 +49,10 @@ impl link_service_server::LinkService for LinkService {
 
         let target = crate::db::get_link(&self.state.db_pool, &short_code)
             .await
-            .map_err(|err| match err {
+            .map_err(|e| match e {
                 DbError::NotFound => Status::not_found("Short code not found"),
                 _ => {
-                    error!("Database error while getting the link");
+                    error!(error=%e, "Database error while getting the link");
                     Status::internal("Failed to get link")
                 }
             })?;
@@ -64,8 +63,7 @@ impl link_service_server::LinkService for LinkService {
             short_code,
             target.clone(),
             self.state.config.redis.cache_ttl,
-        )
-        .await;
+        );
 
         Ok(Response::new(GetLinkResponse { target }))
     }
@@ -76,16 +74,16 @@ impl link_service_server::LinkService for LinkService {
 
         crate::db::delete_link(&self.state.db_pool, &short_code)
             .await
-            .map_err(|err| match err {
+            .map_err(|e| match e {
                 DbError::NotFound => Status::not_found("Short code not found"),
                 _ => {
-                    error!("Database error while deleting the link");
-                    Status::internal("Failed to get link")
+                    error!(error=%e, "Database error while deleting the link");
+                    Status::internal("Failed to delete link")
                 }
             })?;
         info!(short_code, "Link deleted successfully");
 
-        crate::cache::delete_link(self.state.redis.clone(), short_code).await;
+        crate::cache::delete_link(self.state.redis.clone(), short_code);
         Ok(Response::new(()))
     }
 }

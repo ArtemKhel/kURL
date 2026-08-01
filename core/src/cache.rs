@@ -2,9 +2,9 @@ use std::time::Duration;
 
 use common::redis_keys::RedisKeys;
 use redis::AsyncTypedCommands;
-use tracing::{error, warn};
+use tracing::warn;
 
-pub async fn insert_link(redis: deadpool_redis::Pool, short_code: String, target: String, ttl: Duration) {
+pub fn insert_link(redis: deadpool_redis::Pool, short_code: String, target: String, ttl: Duration) {
     tokio::spawn(async move {
         if let Err(e) = inner_insert_link(&redis, short_code, target, ttl).await {
             warn!(error = %e, "Failed to cache link in Redis");
@@ -24,10 +24,10 @@ async fn inner_insert_link(
     Ok(())
 }
 
-pub async fn delete_link(redis: deadpool_redis::Pool, short_code: String) {
+pub fn delete_link(redis: deadpool_redis::Pool, short_code: String) {
     tokio::spawn(async move {
         if let Err(e) = inner_delete_link(redis, short_code).await {
-            error!(error = %e, "Failed to remove link from Redis");
+            warn!(error = %e, "Failed to remove link from Redis");
         }
     });
 }
