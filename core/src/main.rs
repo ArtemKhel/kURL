@@ -9,16 +9,22 @@ use tonic::service::Routes;
 use tower::ServiceBuilder;
 use tracing::debug;
 
-use crate::{grpc::LinkService, init::init, state::AppState};
+use crate::{grpc::LinkService, init::init};
 
 pub mod cache;
 pub mod db;
 mod grpc;
 pub mod init;
-mod state;
 mod utils;
 
 pub(crate) type Config = common::config::CoreConfig;
+
+#[derive(Debug)]
+pub struct AppState {
+    pub config: Config,
+    pub db_pool: sqlx::PgPool,
+    pub redis: deadpool_redis::Pool,
+}
 
 //noinspection RsCompileErrorMacro
 static MIGRATOR: Migrator = sqlx::migrate!("../migrations/");

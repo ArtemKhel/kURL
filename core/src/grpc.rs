@@ -7,7 +7,7 @@ use proto::core::{
 use tonic::{Request, Response, Status};
 use tracing::{error, info, instrument};
 
-use crate::{state::AppState, utils};
+use crate::{AppState, utils};
 
 #[derive(Debug)]
 pub struct LinkService {
