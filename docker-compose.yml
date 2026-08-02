@@ -76,7 +76,9 @@ services:
     profiles: ["infra"]
 
   db:
-    image: postgres:18-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
     restart: unless-stopped
     shm_size: 128mb
     ports:
@@ -85,6 +87,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: kurlyk
+      POSTGRES_INITDB_ARGS: "-c shared_preload_libraries=pg_cron -c cron.database_name=kurlyk"
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
