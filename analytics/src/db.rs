@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use chrono::NaiveDate;
 pub use common::db_utils::DbError;
 use tracing::instrument;
 
@@ -144,8 +143,8 @@ pub async fn update_link_total_and_last_click(
 
 pub(crate) async fn get_global_daily_clicks_since(
     exec: impl sqlx::PgExecutor<'_>,
-    date: NaiveDate,
-) -> Result<Vec<(NaiveDate, i64)>, DbError> {
+    date: chrono::NaiveDate,
+) -> Result<Vec<(chrono::NaiveDate, i64)>, DbError> {
     sqlx::query_as!(
         GlobalDailyStats,
         r#"
@@ -162,8 +161,8 @@ pub(crate) async fn get_global_daily_clicks_since(
 
 pub(crate) async fn get_link_daily_clicks_since(
     exec: impl sqlx::PgExecutor<'_>,
-    date: NaiveDate,
-) -> Result<Vec<(String, NaiveDate, i64)>, DbError> {
+    date: chrono::NaiveDate,
+) -> Result<Vec<(String, chrono::NaiveDate, i64)>, DbError> {
     sqlx::query_as!(
         LinkDailyStats,
         r#"
