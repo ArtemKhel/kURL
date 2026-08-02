@@ -11,7 +11,7 @@ pub struct LinkStats {
     #[prost(int64, repeated, tag = "2")]
     pub weekly_clicks: ::prost::alloc::vec::Vec<i64>,
     #[prost(message, optional, tag = "3")]
-    pub last_clicked_at: ::core::option::Option<::prost_types::Timestamp>,
+    pub last_clicked_at: ::core::option::Option<::prost_wkt_types::Timestamp>,
 }
 /// Generated client implementations.
 pub mod analytics_client {

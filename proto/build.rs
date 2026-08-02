@@ -8,11 +8,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tonic_prost_build::configure()
         .out_dir(&out_dir)
-        .type_attribute(".core", "#[derive(serde::Serialize, serde::Deserialize)]")
+        // .type_attribute(".core", "#[derive(serde::Serialize, serde::Deserialize)]")
+        .extern_path(".google.protobuf.Timestamp", "::prost_wkt_types::Timestamp")
         .compile_protos(&["proto/core.proto"], &["proto/"])?;
 
     tonic_prost_build::configure()
         .out_dir(&out_dir)
+        .extern_path(".google.protobuf.Timestamp", "::prost_wkt_types::Timestamp")
         .compile_protos(&["proto/analytics.proto"], &["proto/"])?;
 
     Ok(())

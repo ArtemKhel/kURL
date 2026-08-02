@@ -6,10 +6,12 @@ build = "build.rs"
 
 [dependencies]
 tonic.workspace = true
-prost = "0.14.3"
+#serde.workspace = true
+
+prost = "0.14.4"
 tonic-prost = "0.14.6"
-prost-types = "0.14.4"
-serde.workspace = true
+#prost-types = { version = "0.14.4", features = ["chrono"] }
+prost-wkt-types = "0.7.1"
 
 [build-dependencies]
 tonic-prost-build = "0.14.6"

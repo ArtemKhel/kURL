@@ -2,6 +2,7 @@ syntax = "proto3";
 package core;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 service LinkService {
   rpc CreateLink(CreateLinkRequest) returns (CreateLinkResponse);
@@ -12,7 +13,7 @@ service LinkService {
 message CreateLinkRequest {
   optional string short_code = 1;
   string target = 2;
-  optional string expiration = 3; // todo: timestamp?
+  optional google.protobuf.Timestamp expiration = 3;
 }
 
 message CreateLinkResponse {

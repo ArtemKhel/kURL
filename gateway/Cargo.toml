@@ -20,9 +20,14 @@ serde.workspace = true
 serde_json.workspace  = true
 chrono.workspace = true
 anyhow.workspace = true
+thiserror.workspace = true
 
 askama = "0.16.0"
+#humantime = "2.4.0"
+duration-str = "0.21.0"
+
 metrics.workspace = true
+url = "2.5.8"
 
 [features]
 web = []

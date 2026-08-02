@@ -56,6 +56,7 @@
               cargo-expand
               cargo-chef
               sqlx-cli
+              # tokio-console
 
               protobuf
               redis

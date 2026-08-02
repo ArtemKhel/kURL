@@ -1,16 +1,16 @@
 mod api;
 mod cache;
 mod grpc;
-pub mod init;
+mod init;
 mod state;
-pub mod web;
+mod web;
 
 use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Context;
 use axum::{
-    Router,
     routing::{delete, get, post},
+    Router,
 };
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
