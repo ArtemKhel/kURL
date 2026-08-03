@@ -1,0 +1,19 @@
+# Configuration for migrations when executed using `sqlx::migrate!()` or through `sqlx-cli`.
+#
+# ### Note
+# A manually constructed [`Migrator`][crate::migrate::Migrator] will not be aware of these
+# configuration options. We recommend using `sqlx::migrate!()` instead.
+#
+# ### Warning: Potential Data Loss or Corruption!
+# Many of these options, if changed after migrations are set up,
+# can result in data loss or corruption of a production database
+# if the proper precautions are not taken.
+#
+# Be sure you know what you are doing and that you read all relevant documentation _thoroughly_.
+[migrate]
+# Set default options for new migrations.
+[migrate.defaults]
+# Specify reversible migrations by default (for `sqlx migrate create`).
+migration-type = "reversible"
+# Specify sequential versioning by default (for `sqlx migrate create`).
+migration-versioning = "sequential"
