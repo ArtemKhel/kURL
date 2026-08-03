@@ -1,4 +1,5 @@
 [redis]
+#host = "localhost"
 host = "redis"
 port = 6379
 cache_ttl_secs = 60
@@ -7,6 +8,7 @@ cache_ttl_secs = 60
 events = "Events"
 
 [database]
+#host = "localhost"
 host = "db"
 port = 5432
 user = "postgres"

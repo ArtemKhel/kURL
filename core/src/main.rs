@@ -4,7 +4,7 @@ use anyhow::Context;
 use axum::routing::get;
 use proto::core::link_service_server::LinkServiceServer;
 use sqlx::migrate::Migrator;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::mpsc::UnboundedSender};
 use tonic::service::Routes;
 use tower::ServiceBuilder;
 use tracing::debug;
@@ -17,13 +17,13 @@ mod grpc;
 pub mod init;
 mod utils;
 
-pub(crate) type Config = common::config::CoreConfig;
+pub type Config = common::config::CoreConfig;
 
 #[derive(Debug)]
 pub struct AppState {
     pub config: Config,
     pub db_pool: sqlx::PgPool,
-    pub redis: deadpool_redis::Pool,
+    pub redis_tx: UnboundedSender<cache::CacheOp>,
 }
 
 //noinspection RsCompileErrorMacro
@@ -39,9 +39,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (db_pool, redis) = init(&config).await.expect("Failed to initialize DB or Redis pool");
 
+    // todo: graceful shutdown
+    let redis_tx = cache::spawn_cache_worker(redis.clone());
     let state = Arc::new(AppState {
         db_pool,
-        redis,
+        redis_tx,
         config: config.clone(),
     });
 

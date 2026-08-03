@@ -38,6 +38,10 @@ pub async fn redirect(
                 info!("Short code not found");
                 Err(StatusCode::NOT_FOUND)
             }
+            Code::FailedPrecondition => {
+                info!("Link has expired");
+                Err(StatusCode::GONE)
+            }
             _ => {
                 warn!(error = %e, "Failed to get link");
                 Err(StatusCode::INTERNAL_SERVER_ERROR)

@@ -1,8 +1,8 @@
 use axum::{
+    Json,
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use metrics::counter;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -32,6 +32,7 @@ pub async fn create(
         }
         Err(e) => match e.code() {
             Code::AlreadyExists => Err(RequestError::AlreadyExists),
+            Code::InvalidArgument => todo!("also check other codes and handlers"),
             _ => {
                 warn!(error = %e, "Failed to create link");
                 Err(RequestError::Internal)

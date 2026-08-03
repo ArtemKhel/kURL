@@ -1,30 +1,44 @@
+use chrono::{DateTime, Utc};
 use common::db_utils::DbError;
 use tracing::instrument;
 
+#[derive(Debug, sqlx::FromRow)]
+pub struct Link {
+    pub target: String,
+    pub expiration: Option<DateTime<Utc>>,
+}
+
 #[instrument(skip(exec))]
-pub async fn get_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<String, DbError> {
-    sqlx::query_scalar!(
+pub async fn get_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<Link, DbError> {
+    sqlx::query_as(
         r#"
-            select target from links 
+            select target, expiration
+            from links
             where short_code = $1
         "#,
-        short_code
     )
+    .bind(short_code)
     .fetch_optional(exec)
     .await?
     .ok_or_else(|| DbError::NotFound)
 }
 
 #[instrument(skip(exec))]
-pub async fn create_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str, target: &str) -> Result<(), DbError> {
-    sqlx::query!(
+pub async fn create_link(
+    exec: impl sqlx::PgExecutor<'_>,
+    short_code: &str,
+    target: &str,
+    expiration: Option<DateTime<Utc>>,
+) -> Result<(), DbError> {
+    sqlx::query(
         r#"
-            insert into links (short_code, target) 
-            values ($1, $2)
+            insert into links (short_code, target, expiration)
+            values ($1, $2, $3)
         "#,
-        short_code,
-        target
     )
+    .bind(short_code)
+    .bind(target)
+    .bind(expiration)
     .execute(exec)
     .await
     .map_err(DbError::from)?;
