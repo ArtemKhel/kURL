@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select target, expiration\n            from links\n            where short_code = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "target",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "links",
+            "name": "target"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "expiration",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "links",
+            "name": "expiration"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "72405e338a6365ace0eb3e26f850d7d52805f1f06ac30d6fe3e76f23ee750307"
+}
