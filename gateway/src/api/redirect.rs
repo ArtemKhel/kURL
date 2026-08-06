@@ -5,7 +5,7 @@ use axum::{
 };
 use metrics::counter;
 use tonic::Code;
-use tracing::{debug, info, instrument, warn};
+use tracing::{info, instrument, warn};
 
 use crate::{
     cache::{redis_query, send_click_event},

@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use metrics::counter;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tonic::Code;
 use tracing::{info, instrument, warn};
