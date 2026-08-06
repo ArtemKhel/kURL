@@ -2,10 +2,41 @@ use chrono::{DateTime, Utc};
 use common::db_utils::DbError;
 use tracing::instrument;
 
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Link {
     pub target: String,
     pub expiration: Option<DateTime<Utc>>,
+}
+
+#[tonic::async_trait]
+pub trait LinkRepository: std::fmt::Debug + Send + Sync {
+    async fn get_link(&self, short_code: &str) -> Result<Link, DbError>;
+    async fn link_exists(&self, short_code: &str) -> Result<bool, DbError>;
+    async fn create_link(
+        &self,
+        short_code: &str,
+        target: &str,
+        expiration: Option<DateTime<Utc>>,
+    ) -> Result<(), DbError>;
+    async fn delete_link(&self, short_code: &str) -> Result<(), DbError>;
+}
+
+#[tonic::async_trait]
+impl LinkRepository for sqlx::PgPool {
+    async fn get_link(&self, short_code: &str) -> Result<Link, DbError> { get_link(self, short_code).await }
+
+    async fn link_exists(&self, short_code: &str) -> Result<bool, DbError> { link_exists(self, short_code).await }
+
+    async fn create_link(
+        &self,
+        short_code: &str,
+        target: &str,
+        expiration: Option<DateTime<Utc>>,
+    ) -> Result<(), DbError> {
+        create_link(self, short_code, target, expiration).await
+    }
+
+    async fn delete_link(&self, short_code: &str) -> Result<(), DbError> { delete_link(self, short_code).await }
 }
 
 #[instrument(skip(exec))]
@@ -35,7 +66,6 @@ pub async fn link_exists(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> R
     .fetch_one(exec)
     .await
     .map_err(DbError::from)
-    // .map(|row| row.link_exists)
 }
 
 #[instrument(skip(exec))]

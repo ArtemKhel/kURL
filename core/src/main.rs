@@ -22,7 +22,7 @@ pub type Config = common::config::CoreConfig;
 #[derive(Debug)]
 pub struct AppState {
     pub config: Config,
-    pub db_pool: sqlx::PgPool,
+    pub db_pool: Arc<dyn db::LinkRepository>,
     pub redis_tx: UnboundedSender<cache::CacheOp>,
 }
 
@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // todo: graceful shutdown
     let redis_tx = cache::spawn_cache_worker(redis.clone());
     let state = Arc::new(AppState {
-        db_pool,
+        db_pool: Arc::new(db_pool),
         redis_tx,
         config: config.clone(),
     });
