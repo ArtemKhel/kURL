@@ -10,17 +10,32 @@ pub struct Link {
 
 #[instrument(skip(exec))]
 pub async fn get_link(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<Link, DbError> {
-    sqlx::query_as(
+    sqlx::query_as!(
+        Link,
         r#"
             select target, expiration
             from links
             where short_code = $1
         "#,
+        short_code
     )
-    .bind(short_code)
     .fetch_optional(exec)
     .await?
     .ok_or_else(|| DbError::NotFound)
+}
+
+#[instrument(skip(exec))]
+pub async fn link_exists(exec: impl sqlx::PgExecutor<'_>, short_code: &str) -> Result<bool, DbError> {
+    sqlx::query_scalar!(
+        r#"
+            select exists(select 1 from links where short_code = $1)::bool as "link_exists!"
+        "#,
+        short_code
+    )
+    .fetch_one(exec)
+    .await
+    .map_err(DbError::from)
+    // .map(|row| row.link_exists)
 }
 
 #[instrument(skip(exec))]
@@ -30,15 +45,15 @@ pub async fn create_link(
     target: &str,
     expiration: Option<DateTime<Utc>>,
 ) -> Result<(), DbError> {
-    sqlx::query(
+    sqlx::query!(
         r#"
             insert into links (short_code, target, expiration)
             values ($1, $2, $3)
         "#,
+        short_code,
+        target,
+        expiration
     )
-    .bind(short_code)
-    .bind(target)
-    .bind(expiration)
     .execute(exec)
     .await
     .map_err(DbError::from)?;

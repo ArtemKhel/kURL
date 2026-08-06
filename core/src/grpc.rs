@@ -11,7 +11,7 @@ use proto::core::{
 use tonic::{Request, Response, Status};
 use tracing::{error, info, instrument};
 
-use crate::{AppState, cache::CacheOp, utils};
+use crate::{AppState, cache::CacheOp, db, utils};
 
 #[derive(Debug)]
 pub struct LinkService {
@@ -28,19 +28,26 @@ impl link_service_server::LinkService for LinkService {
             expiration,
         } = request.into_inner();
 
-        let short_code = short_code.unwrap_or_else(|| utils::random_string(6));
+        // let short_code = short_code.unwrap_or_else(|| generate_short_code(self.state.db_pool));
+        let short_code = if let Some(code) = short_code {
+            code
+        } else {
+            generate_short_code(self.state.db_pool.clone())
+                .await
+                .ok_or_else(|| Status::internal("Failed to generate a unique short code"))?
+        };
 
         let expiration = expiration.map(timestamp_to_datetime).transpose()?;
         if expiration.is_some_and(|expiration| expiration <= Utc::now()) {
             return Err(Status::invalid_argument("Expiration must be in the future"));
         }
 
-        crate::db::create_link(&self.state.db_pool, &short_code, &target, expiration)
+        db::create_link(&self.state.db_pool, &short_code, &target, expiration)
             .await
             .map_err(|e| match e {
                 DbError::Conflict(_) => Status::already_exists("Short code already exists"),
                 _ => {
-                    error!(error=%e, "Database error while creating link");
+                    error!(error = % e, "Database error while creating link");
                     Status::internal("Failed to create link")
                 }
             })?;
@@ -54,7 +61,7 @@ impl link_service_server::LinkService for LinkService {
                     value: target.clone(),
                     ttl,
                 })
-                .map_err(|e| error!(error=%e, "Cache worker channel is closed"));
+                .map_err(|e| error!(error = % e, "Cache worker channel is closed"));
         }
 
         info!("Link created successfully");
@@ -65,7 +72,7 @@ impl link_service_server::LinkService for LinkService {
     async fn get_link(&self, request: Request<GetLinkRequest>) -> Result<Response<GetLinkResponse>, Status> {
         let GetLinkRequest { short_code } = request.into_inner();
 
-        let link = crate::db::get_link(&self.state.db_pool, &short_code)
+        let link = db::get_link(&self.state.db_pool, &short_code)
             .await
             .map_err(|e| match e {
                 DbError::NotFound => Status::not_found("Short code not found"),
@@ -99,7 +106,7 @@ impl link_service_server::LinkService for LinkService {
     async fn delete_link(&self, request: Request<DeleteLinkRequest>) -> Result<Response<()>, Status> {
         let DeleteLinkRequest { short_code } = request.into_inner();
 
-        crate::db::delete_link(&self.state.db_pool, &short_code)
+        db::delete_link(&self.state.db_pool, &short_code)
             .await
             .map_err(|e| match e {
                 DbError::NotFound => Status::not_found("Short code not found"),
@@ -116,6 +123,18 @@ impl link_service_server::LinkService for LinkService {
 
         Ok(Response::new(()))
     }
+}
+
+async fn generate_short_code(db_pool: sqlx::PgPool) -> Option<String> {
+    const RETRIES: usize = 10;
+    const LEN: usize = 6;
+    for _ in 0..RETRIES {
+        let code = utils::random_string(LEN);
+        if let Ok(false) = db::link_exists(&db_pool, &code).await {
+            return Some(code);
+        }
+    }
+    None
 }
 
 fn timestamp_to_datetime(timestamp: proto::prost_wkt_types::Timestamp) -> Result<DateTime<Utc>, Status> {
