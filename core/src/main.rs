@@ -8,7 +8,7 @@ use tokio::{net::TcpListener, sync::mpsc::UnboundedSender};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tonic::service::Routes;
 use tower::ServiceBuilder;
-use tracing::{debug, info};
+use tracing::debug;
 
 use crate::{grpc::LinkService, init::init};
 

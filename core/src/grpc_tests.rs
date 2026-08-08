@@ -94,6 +94,7 @@ fn setup_test_service() -> (LinkService, Arc<FakeLinkRepository>, mpsc::Unbounde
         },
         logging: common::config::LoggingConfig {
             level: "info".into(),
+            enabled: false,
             otlp_endpoint: None,
         },
     };

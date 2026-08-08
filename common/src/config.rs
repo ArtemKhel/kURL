@@ -39,6 +39,8 @@ pub struct DatabaseConfig {
 #[serde(deny_unknown_fields)]
 pub struct LoggingConfig {
     pub level: String,
+    #[serde(default)]
+    pub enabled: bool,
     pub otlp_endpoint: Option<String>,
 }
 
@@ -135,6 +137,8 @@ impl AppConfig {
             .set_default("database.password", "postgres")?
             .set_default("database.db_name", "kurlyk")?
             .set_default("logging.level", "info")?
+            .set_default("logging.enabled", false)?
+            .set_default("logging.otlp_endpoint", "http://alloy:4317")?
             .set_default("gateway.host", "localhost")?
             .set_default("gateway.port", 3000)?
             .set_default("core.host", "localhost")?
