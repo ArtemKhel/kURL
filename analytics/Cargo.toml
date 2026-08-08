@@ -19,7 +19,7 @@ chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
+thiserror.workspace = true
 
-thiserror = "2.0.18"
 itertools = "0.15.0"
 

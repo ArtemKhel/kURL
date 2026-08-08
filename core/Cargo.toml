@@ -8,6 +8,7 @@ common.workspace = true
 proto.workspace = true
 
 tokio.workspace = true
+tokio-util.workspace = true
 axum.workspace = true
 tower.workspace = true
 tonic.workspace = true

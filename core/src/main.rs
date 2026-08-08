@@ -5,9 +5,10 @@ use axum::routing::get;
 use proto::core::link_service_server::LinkServiceServer;
 use sqlx::migrate::Migrator;
 use tokio::{net::TcpListener, sync::mpsc::UnboundedSender};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tonic::service::Routes;
 use tower::ServiceBuilder;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{grpc::LinkService, init::init};
 
@@ -39,8 +40,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (db_pool, redis) = init(&config).await.expect("Failed to initialize DB or Redis pool");
 
-    // todo: graceful shutdown
-    let redis_tx = cache::spawn_cache_worker(redis.clone());
+    let task_tracker = TaskTracker::new();
+    let shutdown = CancellationToken::new();
+
+    let redis_tx = cache::spawn_cache_worker(redis.clone(), &task_tracker, shutdown.clone());
     let state = Arc::new(AppState {
         db_pool: Arc::new(db_pool),
         redis_tx,
@@ -60,11 +63,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .into_axum_router()
         .with_state(())
         .route("/", get(async || "Hello"))
-        .with_state(state);
+        .with_state(state.clone());
 
     let listener = TcpListener::bind(addr).await?;
     let _ = axum::serve(listener, app)
-        .with_graceful_shutdown(common::shutdown(async move || {}))
+        .with_graceful_shutdown(common::shutdown(async move || {
+            shutdown.cancel();
+            task_tracker.close();
+            task_tracker.wait().await;
+        }))
         .await;
 
     drop(otel_guard);

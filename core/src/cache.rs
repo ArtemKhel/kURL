@@ -3,7 +3,8 @@ use std::time::Duration;
 use common::redis_keys::RedisKeys;
 use redis::AsyncTypedCommands;
 use tokio::sync::mpsc;
-use tracing::{error, instrument, warn};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use tracing::{error, info, instrument, warn};
 
 // Alternative:
 // Add `version` column to links` table, bump it on each update with trigger.
@@ -30,32 +31,71 @@ pub enum CacheOp {
     Del { key: String },
 }
 
+/// Spawns the cache write-behind worker and registers it with `tracker`.
+///
+/// On `token` cancellation the worker stops accepting new ops but drains
+/// whatever is already buffered in the channel before it exits, so no
+/// in-flight writes are silently dropped.
+///
+/// Callers retain the [`mpsc::UnboundedSender`] and should drop it (or let
+/// `AppState` drop it) before awaiting `tracker.wait()`, so the drain loop
+/// can observe the closed channel and terminate cleanly.
 #[instrument(skip_all)]
-pub fn spawn_cache_worker(redis: deadpool_redis::Pool) -> mpsc::UnboundedSender<CacheOp> {
+pub fn spawn_cache_worker(
+    redis: deadpool_redis::Pool,
+    tracker: &TaskTracker,
+    token: CancellationToken,
+) -> mpsc::UnboundedSender<CacheOp> {
     let (tx, mut rx) = mpsc::unbounded_channel();
-    tokio::spawn(async move {
-        while let Some(op) = rx.recv().await {
-            let mut conn = match redis.get().await {
-                Ok(c) => c,
-                Err(e) => {
-                    error!(error = %e, "pool error, dropping op");
-                    continue;
-                }
-            };
-            let result = match &op {
-                CacheOp::Set { key, value, ttl } => {
-                    if ttl.as_secs() > 0 {
-                        conn.set_ex(RedisKeys::link_cache_key(key), value, ttl.as_secs()).await
-                    } else {
-                        Ok(())
+
+    tracker.spawn(async move {
+        loop {
+            tokio::select! {
+                biased;
+                op = rx.recv() => {
+                    match op {
+                        Some(op) => process_op(&redis, op).await,
+                        None => break,
                     }
                 }
-                CacheOp::Del { key } => conn.del(RedisKeys::link_cache_key(key)).await.map(|_| ()),
-            };
-            if let Err(e) = result {
-                warn!(error = %e, operation=?op, "cache op failed");
+
+                _ = token.cancelled() => {
+                    info!("cache worker: draining and shutting down");
+                    rx.close();
+                    while let Some(op) = rx.recv().await {
+                        process_op(&redis, op).await;
+                    }
+                    break;
+                }
             }
         }
+
+        info!("cache worker: exited");
     });
+
     tx
+}
+
+#[instrument(skip_all, fields(op = ?op))]
+async fn process_op(redis: &deadpool_redis::Pool, op: CacheOp) {
+    let mut conn = match redis.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!(error = %e, "pool error, dropping op");
+            return;
+        }
+    };
+    let result = match &op {
+        CacheOp::Set { key, value, ttl } => {
+            if ttl.as_secs() > 0 {
+                conn.set_ex(RedisKeys::link_cache_key(key), value, ttl.as_secs()).await
+            } else {
+                Ok(())
+            }
+        }
+        CacheOp::Del { key } => conn.del(RedisKeys::link_cache_key(key)).await.map(|_| ()),
+    };
+    if let Err(e) = result {
+        warn!(error = %e, operation=?op, "cache op failed");
+    }
 }
