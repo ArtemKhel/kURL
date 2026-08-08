@@ -1,7 +1,6 @@
-// Discovers all running containers via the docker socket and tails their
-// json-file logs, forwarding to Loki. Verify syntax against Alloy's current
-// docs if this drifts — it's a young component and the config surface moves.
+// Grafana Alloy unified telemetry configuration (logs, metrics, traces)
 
+// Docker container log collection -> Loki
 discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"
 }
@@ -15,5 +14,59 @@ loki.source.docker "default" {
 loki.write "default" {
   endpoint {
     url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// OTLP Receiver for traces, metrics, and logs
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    traces  = [otelcol.exporter.otlp.tempo.input]
+    metrics = [otelcol.exporter.prometheus.default.input]
+    logs    = [otelcol.exporter.loki.default.input]
+  }
+}
+
+// Forward Traces to Tempo
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+    tls {
+      insecure = true
+    }
+  }
+}
+
+// Forward Logs to Loki
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.default.receiver]
+}
+
+// Scrape Prometheus metrics from Rust service listener ports (9100) periodically
+prometheus.scrape "rust_services" {
+  targets = [
+    {"__address__" = "gateway:9100", "service" = "gateway"},
+    {"__address__" = "core:9100", "service" = "core"},
+    {"__address__" = "analytics:9100", "service" = "analytics"},
+  ]
+  scrape_interval = "10s"
+  forward_to      = [prometheus.remote_write.default.receiver]
+}
+
+// Forward OTLP metrics to Prometheus via Remote Write
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+// Forward Metrics to Prometheus via Remote Write
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
   }
 }
