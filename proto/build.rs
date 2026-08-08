@@ -2,9 +2,10 @@ use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = PathBuf::from("./src/generated/");
-    let protoc_bin = protoc_bin_vendored::protoc_bin_path()?;
 
-    unsafe { std::env::set_var("PROTOC", protoc_bin) };
+    // let protoc_bin = protoc_bin_vendored::protoc_bin_path()?;
+    // unsafe { std::env::set_var("PROTOC", protoc_bin) };
+    // println!("cargo:rustc-env=PROTOC={}", protoc_bin.display());
 
     tonic_prost_build::configure()
         .out_dir(&out_dir)

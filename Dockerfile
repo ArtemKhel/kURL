@@ -6,12 +6,11 @@ FROM rust:slim-bookworm@sha256:96c0af8cf054fd006435089f0076729716784ec9be485bd65
 # stay in the cache mount across builds.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean # && \
-#    apt-get update && apt-get install --no-install-recommends -y \
-#    protobuf-compiler \
-#    && rm -rf /var/lib/apt/lists/*
-    # add pkg-config + libssl-dev here too if any crate pulls in
-    # native-tls/openssl-sys instead of rustls
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install --no-install-recommends -y \
+    protobuf-compiler \
+    libprotobuf-dev
+
 WORKDIR /app
 
 COPY rust-toolchain.toml rust-toolchain.toml
