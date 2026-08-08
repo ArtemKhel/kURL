@@ -1,4 +1,4 @@
-FROM rust:slim-bookworm AS chef
+FROM rust:slim-bookworm@sha256:96c0af8cf054fd006435089f0076729716784ec9be485bd655de59c55df105ce AS chef
 # `rm -f /etc/apt/apt.conf.d/docker-clean`: Debian's slim images ship that file
 # with `APT::Keep-Downloaded-Packages "false";`, which makes apt delete
 # downloaded `.deb` files right after install. That defeats the cache mount on
