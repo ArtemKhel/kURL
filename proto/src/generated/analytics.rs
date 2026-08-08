@@ -3,15 +3,38 @@
 pub struct GetLinkStatsRequest {
     #[prost(string, tag = "1")]
     pub short_code: ::prost::alloc::string::String,
+    #[prost(uint32, optional, tag = "2")]
+    pub days: ::core::option::Option<u32>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct LinkStats {
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetLinkStatsResponse {
+    #[prost(string, tag = "1")]
+    pub short_code: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "2")]
+    pub total_clicks: u64,
+    #[prost(message, repeated, tag = "3")]
+    pub daily_clicks: ::prost::alloc::vec::Vec<DailyClicks>,
+    #[prost(message, optional, tag = "4")]
+    pub last_clicked_at: ::core::option::Option<::prost_wkt_types::Timestamp>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetGlobalStatsRequest {
+    #[prost(uint32, optional, tag = "1")]
+    pub days: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetGlobalStatsResponse {
     #[prost(uint64, tag = "1")]
     pub total_clicks: u64,
-    #[prost(int64, repeated, tag = "2")]
-    pub weekly_clicks: ::prost::alloc::vec::Vec<i64>,
-    #[prost(message, optional, tag = "3")]
-    pub last_clicked_at: ::core::option::Option<::prost_wkt_types::Timestamp>,
+    #[prost(message, repeated, tag = "2")]
+    pub daily_clicks: ::prost::alloc::vec::Vec<DailyClicks>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DailyClicks {
+    #[prost(string, tag = "1")]
+    pub date: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "2")]
+    pub clicks: u64,
 }
 /// Generated client implementations.
 pub mod analytics_client {
@@ -107,7 +130,10 @@ pub mod analytics_client {
         pub async fn get_link_stats(
             &mut self,
             request: impl tonic::IntoRequest<super::GetLinkStatsRequest>,
-        ) -> std::result::Result<tonic::Response<super::LinkStats>, tonic::Status> {
+        ) -> std::result::Result<
+            tonic::Response<super::GetLinkStatsResponse>,
+            tonic::Status,
+        > {
             self.inner
                 .ready()
                 .await
@@ -123,6 +149,30 @@ pub mod analytics_client {
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("analytics.Analytics", "GetLinkStats"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_global_stats(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetGlobalStatsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetGlobalStatsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/analytics.Analytics/GetGlobalStats",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("analytics.Analytics", "GetGlobalStats"));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -143,7 +193,17 @@ pub mod analytics_server {
         async fn get_link_stats(
             &self,
             request: tonic::Request<super::GetLinkStatsRequest>,
-        ) -> std::result::Result<tonic::Response<super::LinkStats>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetLinkStatsResponse>,
+            tonic::Status,
+        >;
+        async fn get_global_stats(
+            &self,
+            request: tonic::Request<super::GetGlobalStatsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetGlobalStatsResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct AnalyticsServer<T> {
@@ -228,7 +288,7 @@ pub mod analytics_server {
                         T: Analytics,
                     > tonic::server::UnaryService<super::GetLinkStatsRequest>
                     for GetLinkStatsSvc<T> {
-                        type Response = super::LinkStats;
+                        type Response = super::GetLinkStatsResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -251,6 +311,51 @@ pub mod analytics_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetLinkStatsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/analytics.Analytics/GetGlobalStats" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetGlobalStatsSvc<T: Analytics>(pub Arc<T>);
+                    impl<
+                        T: Analytics,
+                    > tonic::server::UnaryService<super::GetGlobalStatsRequest>
+                    for GetGlobalStatsSvc<T> {
+                        type Response = super::GetGlobalStatsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetGlobalStatsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Analytics>::get_global_stats(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetGlobalStatsSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

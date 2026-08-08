@@ -24,6 +24,8 @@ host = "core"
 port = 3001
 
 [analytics]
+host = "analytics"
+port = 3002
 read_batch_size = 100
 read_block_secs = 5   # todo: < 0.5
 flush_interval_secs = 10

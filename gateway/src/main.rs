@@ -26,7 +26,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let otel_guard = common::logging::init_tracing(&config.logging, "gateway");
     info!(?config);
 
-    let (redis, grpc_client) = init(&config).await.expect("Failed to connect to Redis or gRPC server");
+    let (redis, grpc_client, analytics_client) =
+        init(&config).await.expect("Failed to connect to Redis or gRPC server");
 
     let addr = format!("0.0.0.0:{}", config.gateway.port)
         .parse::<SocketAddr>()
@@ -37,6 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config,
         redis,
         grpc_client,
+        analytics_client,
     });
 
     let app = Router::new()
@@ -45,6 +47,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/", get(web::web::hello))
         .route("/api/create", post(api::create::create))
         .route("/api/delete", delete(api::delete::delete))
+        .route("/api/stats/{code}", get(api::stats::link_stats))
+        .route("/api/stats", get(api::stats::global_stats))
         .route("/s/{code}", get(api::redirect::redirect))
         .fallback(web::not_found)
         .with_state(state);

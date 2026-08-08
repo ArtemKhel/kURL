@@ -1,13 +1,16 @@
 use std::time::Duration;
 
 use deadpool_redis::Pool;
-use proto::core::link_service_client::LinkServiceClient;
+use proto::{analytics::analytics_client::AnalyticsClient, core::link_service_client::LinkServiceClient};
 use tonic::transport::Channel;
 use tracing::{info, instrument};
 
 #[instrument]
-pub async fn init(config: &crate::Config) -> Result<(Pool, LinkServiceClient<Channel>), Box<dyn std::error::Error>> {
-    let (redis_pool, core_client) = tokio::try_join!(
+#[allow(clippy::type_complexity)]
+pub async fn init(
+    config: &crate::Config,
+) -> Result<(Pool, LinkServiceClient<Channel>, AnalyticsClient<Channel>), Box<dyn std::error::Error>> {
+    let (redis_pool, core_client, analytics_client) = tokio::try_join!(
         common::connect_with_retry(
             "Redis",
             || {
@@ -34,8 +37,20 @@ pub async fn init(config: &crate::Config) -> Result<(Pool, LinkServiceClient<Cha
             },
             10,
             Duration::from_millis(50)
+        ),
+        common::connect_with_retry(
+            "Analytics gRPC",
+            || {
+                let analytics_url = config.analytics.to_string();
+                async move {
+                    let client = AnalyticsClient::connect(analytics_url).await?;
+                    Ok(client)
+                }
+            },
+            10,
+            Duration::from_millis(50)
         )
     )?;
     info!("All services initialized successfully");
-    Ok((redis_pool, core_client))
+    Ok((redis_pool, core_client, analytics_client))
 }

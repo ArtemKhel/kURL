@@ -5,15 +5,33 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 service Analytics {
-  rpc GetLinkStats(GetLinkStatsRequest) returns (LinkStats);
+  rpc GetLinkStats(GetLinkStatsRequest) returns (GetLinkStatsResponse);
+  rpc GetGlobalStats(GetGlobalStatsRequest) returns (GetGlobalStatsResponse);
 }
 
 message GetLinkStatsRequest {
   string short_code = 1;
+  optional uint32 days = 2;
 }
 
-message LinkStats{
-  uint64 total_clicks = 1;
-  repeated int64 weekly_clicks = 2;
-  google.protobuf.Timestamp last_clicked_at = 3;
+message GetLinkStatsResponse {
+  string short_code = 1;
+  uint64 total_clicks = 2;
+  repeated DailyClicks daily_clicks = 3;
+  optional google.protobuf.Timestamp last_clicked_at = 4;
 }
+
+message GetGlobalStatsRequest {
+  optional uint32 days = 1;
+}
+
+message GetGlobalStatsResponse {
+  uint64 total_clicks = 1;
+  repeated DailyClicks daily_clicks = 2;
+}
+
+message DailyClicks {
+  string date = 1;
+  uint64 clicks = 2;
+}
+

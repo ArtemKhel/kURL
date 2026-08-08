@@ -79,6 +79,8 @@ pub struct CoreServiceConfig {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct AnalyticsServiceConfig {
+    pub host: String,
+    pub port: u16,
     pub read_batch_size: usize,
     #[serde(deserialize_with = "duration_from_secs")]
     pub read_block_secs: Duration,
@@ -105,6 +107,7 @@ pub struct GatewayConfig {
     pub gateway: GatewayServiceConfig,
     pub redis: RedisConfig,
     pub core: ServiceAddress,
+    pub analytics: ServiceAddress,
     pub logging: LoggingConfig,
 }
 
@@ -143,6 +146,8 @@ impl AppConfig {
             .set_default("gateway.port", 3000)?
             .set_default("core.host", "localhost")?
             .set_default("core.port", 3001)?
+            .set_default("analytics.host", "localhost")?
+            .set_default("analytics.port", 3002)?
             .set_default("analytics.read_batch_size", 100)?
             .set_default("analytics.read_block_secs", 5)?
             .set_default("analytics.flush_interval_secs", 60)?
@@ -192,6 +197,7 @@ impl Display for ServiceAddress {
 impl_display!(RedisConfig, "redis://{}:{}", host, port);
 // impl_display!(GatewayServiceConfig, "{}:{}", host, port);
 impl_display!(CoreServiceConfig, "grpc://{}:{}", host, port);
+impl_display!(AnalyticsServiceConfig, "grpc://{}:{}", host, port);
 impl_display!(
     DatabaseConfig,
     "postgresql://{}:{}@{}:{}/{}",
@@ -212,6 +218,11 @@ impl From<AppConfig> for GatewayConfig {
                 host: value.core.host,
                 port: value.core.port,
             },
+            analytics: ServiceAddress {
+                scheme: Some("grpc".into()),
+                host: value.analytics.host.clone(),
+                port: value.analytics.port,
+            },
             logging: value.logging,
         }
     }
@@ -230,11 +241,7 @@ impl From<AppConfig> for CoreConfig {
 impl From<AppConfig> for AnalyticsConfig {
     fn from(value: AppConfig) -> Self {
         AnalyticsConfig {
-            analytics: AnalyticsServiceConfig {
-                read_batch_size: value.analytics.read_batch_size,
-                read_block_secs: value.analytics.read_block_secs,
-                flush_interval: value.analytics.flush_interval,
-            },
+            analytics: value.analytics,
             // redis: ServiceAddress {
             //     scheme: Some("redis".into()),
             //     host: value.redis.host,
