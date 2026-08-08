@@ -6,20 +6,17 @@ services:
       target: gateway
     restart: unless-stopped
     depends_on:
-#      tempo:
-#        condition: service_started
-#      core:
-#        condition: service_started
-      - core
-      - tempo
+      core:
+        condition: service_started
+      alloy:
+        condition: service_healthy
     working_dir: /usr/local/bin
-#    environment:
-#      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4317
+    #    environment:
+    #      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4317
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
       - ./config:/usr/local/bin/config:ro
-    profiles: ["app"]
 
   core:
     build:
@@ -28,19 +25,15 @@ services:
       target: core
     restart: unless-stopped
     depends_on:
-#      db:
-#        condition: service_healthy
-#      redis:
-#        condition: service_started
-#      tempo:
-#        condition: service_started
-      - db
-      - redis
-      - tempo
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      alloy:
+        condition: service_healthy
     working_dir: /usr/local/bin
     volumes:
       - ./config:/usr/local/bin/config:ro
-    profiles: ["app"]
 
   analytics:
     build:
@@ -49,19 +42,15 @@ services:
       target: analytics
     restart: unless-stopped
     depends_on:
-#      db:
-#        condition: service_healthy
-#      redis:
-#        condition: service_started
-#      tempo:
-#        condition: service_started
-      - db
-      - redis
-      - tempo
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      alloy:
+        condition: service_healthy
     working_dir: /usr/local/bin
     volumes:
       - ./config:/usr/local/bin/config:ro
-    profiles: ["app"]
 
   redis:
     image: redis:8-alpine
@@ -73,7 +62,6 @@ services:
       - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
       # - redis-data:/data
     command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
-    profiles: ["infra"]
 
   db:
     build:
@@ -95,17 +83,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    profiles: ["infra"]
 
   prometheus:
     image: prom/prometheus:main
     restart: unless-stopped
+    command: [ "--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--web.enable-remote-write-receiver" ]
     volumes:
-      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
-    profiles: ["monitoring"]
 
   loki:
     image: grafana/loki
@@ -114,18 +101,28 @@ services:
       - ./config/loki-config.yaml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     command: [ "-config.file=/etc/loki/local-config.yaml" ]
-    profiles: ["monitoring"]
 
   alloy:
     image: grafana/alloy
     restart: unless-stopped
     depends_on:
       - loki
+      - tempo
+      - prometheus
+    ports:
+      - "127.0.0.1:12345:12345"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
     volumes:
       - ./config/alloy-config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro  # read-only, used only for container log discovery
     command: [ "run", "--server.http.listen-addr=0.0.0.0:12345", "/etc/alloy/config.alloy" ]
-    profiles: ["monitoring"]
+    healthcheck:
+      #      test: [ "CMD-SHELL", "wget -q --spider http://localhost:12345/-/ready || exit 1" ]
+      test: [ "CMD-SHELL", "true" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   tempo:
     image: grafana/tempo
@@ -135,12 +132,6 @@ services:
     volumes:
       - ./config/tempo.yaml:/etc/tempo.yaml:ro
       - tempo_data:/var/tempo
-#    healthcheck:
-#      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3200/ready" ]
-#      interval: 5s
-#      timeout: 3s
-#      retries: 5
-    profiles: ["monitoring"]
 
   grafana:
     image: grafana/grafana:13.1-slim
@@ -156,7 +147,6 @@ services:
       - grafana_data:/var/lib/grafana
     ports:
       - "127.0.0.1:3010:3000"  # 3000 is taken by gateway
-    profiles: ["monitoring"]
 
 volumes:
   postgres_data:
