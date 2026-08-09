@@ -28,6 +28,8 @@ duration-str = "0.21.0"
 
 metrics.workspace = true
 url = "2.5.8"
+utoipa = { version = "5.5", features = ["axum_extras", "chrono"] }
+utoipa-redoc = { version = "6.0", features = ["axum"] }
 
 [features]
 web = []

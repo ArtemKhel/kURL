@@ -6,15 +6,16 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tonic::Code;
 use tracing::{instrument, warn};
+use utoipa::{IntoParams, ToSchema};
 
 use crate::{grpc, state::SharedState};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
 pub struct StatsQuery {
     pub days: Option<u32>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct LinkStatsResp {
     pub short_code: String,
     pub total_clicks: u64,
@@ -22,12 +23,26 @@ pub struct LinkStatsResp {
     pub last_clicked_at: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct DailyClicksResp {
     pub date: String,
     pub clicks: u64,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/stats/{code}",
+    params(
+        ("code" = String, Path, description = "Short code of the link"),
+        StatsQuery
+    ),
+    responses(
+        (status = 200, description = "Stats retrieved successfully", body = LinkStatsResp),
+        (status = 404, description = "Link not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "links"
+)]
 #[instrument(skip_all, fields(short_code = short_code))]
 pub async fn link_stats(
     State(state): State<SharedState>,
@@ -62,12 +77,24 @@ pub async fn link_stats(
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct GlobalStatsResp {
     pub total_clicks: u64,
     pub daily_clicks: Vec<DailyClicksResp>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/stats",
+    params(
+        StatsQuery
+    ),
+    responses(
+        (status = 200, description = "Global stats retrieved successfully", body = GlobalStatsResp),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "links"
+)]
 #[instrument(skip_all)]
 pub async fn global_stats(
     State(state): State<SharedState>,

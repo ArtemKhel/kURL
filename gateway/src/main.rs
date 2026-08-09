@@ -15,10 +15,38 @@ use axum::{
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::info;
+use utoipa::OpenApi;
+use utoipa_redoc::{Redoc, Servable};
 
 use crate::{init::init, state::AppState};
 
 pub(crate) type Config = common::config::GatewayConfig;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        api::create::create,
+        api::delete::delete,
+        api::stats::link_stats,
+        api::stats::global_stats,
+        api::redirect::redirect
+    ),
+    components(
+        schemas(
+            api::create::CreateLinkReq,
+            api::create::Expiration,
+            api::create::CreateLinkResp,
+            api::delete::DeleteLinkReq,
+            api::stats::LinkStatsResp,
+            api::stats::DailyClicksResp,
+            api::stats::GlobalStatsResp,
+        )
+    ),
+    tags(
+        (name = "links", description = "Link management API")
+    )
+)]
+struct ApiDoc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -50,6 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/stats/{code}", get(api::stats::link_stats))
         .route("/api/stats", get(api::stats::global_stats))
         .route("/s/{code}", get(api::redirect::redirect))
+        .merge(Redoc::with_url("/api-docs", ApiDoc::openapi()))
         .fallback(web::not_found)
         .with_state(state);
     axum::serve(listener, app)

@@ -3,9 +3,21 @@ use proto::core::DeleteLinkRequest;
 use serde::Deserialize;
 use tonic::Code;
 use tracing::{info, instrument, warn};
+use utoipa::ToSchema;
 
 use crate::{grpc, state::SharedState};
 
+#[utoipa::path(
+    delete,
+    path = "/api/delete",
+    request_body = DeleteLinkReq,
+    responses(
+        (status = 200, description = "Link deleted successfully"),
+        (status = 404, description = "Link not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "links"
+)]
 #[instrument(skip_all, fields(short_code = delete_req.short_code))]
 pub async fn delete(State(state): State<SharedState>, Json(delete_req): Json<DeleteLinkReq>) -> Result<(), StatusCode> {
     match grpc::core_delete_link(&state, delete_req.into()).await {
@@ -23,7 +35,7 @@ pub async fn delete(State(state): State<SharedState>, Json(delete_req): Json<Del
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct DeleteLinkReq {
     short_code: String,
 }

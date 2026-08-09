@@ -13,6 +13,20 @@ use crate::{
     state::SharedState,
 };
 
+#[utoipa::path(
+    get,
+    path = "/s/{code}",
+    params(
+        ("code" = String, Path, description = "Short code of the link")
+    ),
+    responses(
+        (status = 308, description = "Redirect to target URL"),
+        (status = 404, description = "Link not found"),
+        (status = 410, description = "Link has expired"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "links"
+)]
 #[instrument(skip_all, fields(short_code = short_code))]
 pub async fn redirect(
     State(state): State<SharedState>,

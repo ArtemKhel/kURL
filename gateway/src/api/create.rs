@@ -11,9 +11,22 @@ use serde_json::json;
 use tonic::Code;
 use tracing::{info, instrument, warn};
 use url::Url;
+use utoipa::ToSchema;
 
 use crate::{grpc, state::SharedState};
 
+#[utoipa::path(
+    post,
+    path = "/api/create",
+    request_body = CreateLinkReq,
+    responses(
+        (status = 200, description = "Link created successfully", body = CreateLinkResp),
+        (status = 400, description = "Invalid request"),
+        (status = 409, description = "Link already exists"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "links"
+)]
 #[instrument(skip_all, fields(short_code = ?create_req.short_code, target = create_req.target))]
 pub async fn create(
     State(state): State<SharedState>,
@@ -42,14 +55,14 @@ pub async fn create(
         },
     }
 }
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct CreateLinkReq {
     short_code: Option<String>,
     target: String,
     expiration: Option<Expiration>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub enum Expiration {
     /// RFC 3339 timestamp (`"2027-01-01T00:00:00Z"`) or partial date strings (`"2027-01-01"`) (assumes midnight UTC)
     #[serde(deserialize_with = "deserialize_datetime")]
@@ -140,15 +153,15 @@ impl IntoResponse for RequestError {
         (status, body).into_response()
     }
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct CreateLinkResp {
     short_code: String,
 }
 
-impl Into<CreateLinkResp> for proto::core::CreateLinkResponse {
-    fn into(self) -> CreateLinkResp {
+impl From<proto::core::CreateLinkResponse> for CreateLinkResp {
+    fn from(val: proto::core::CreateLinkResponse) -> Self {
         CreateLinkResp {
-            short_code: self.short_code,
+            short_code: val.short_code,
         }
     }
 }
