@@ -63,7 +63,9 @@
             ];
 
             RUST_SRC_PATH = "${toolchain}/lib/rustlib/src/rust/library";
-            SQLX_OFFLINE="true";
+            PROTOC = "${protobuf}/bin/protoc";
+            PROTOC_INCLUDE = "${protobuf}/include";
+            # SQLX_OFFLINE="true";
           });
       };
     };

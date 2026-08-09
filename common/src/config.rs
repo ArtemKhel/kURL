@@ -242,11 +242,6 @@ impl From<AppConfig> for AnalyticsConfig {
     fn from(value: AppConfig) -> Self {
         AnalyticsConfig {
             analytics: value.analytics,
-            // redis: ServiceAddress {
-            //     scheme: Some("redis".into()),
-            //     host: value.redis.host,
-            //     port: value.redis.port,
-            // },
             redis: value.redis,
             logging: value.logging,
             database: value.database,
