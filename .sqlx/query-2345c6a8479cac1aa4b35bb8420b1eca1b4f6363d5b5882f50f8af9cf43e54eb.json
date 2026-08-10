@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            select day, clicks from global_daily_clicks\n            where day >= $1\n        ",
+  "query": "\n            select day, clicks from global_daily_clicks\n            where day >= $1\n            order by day\n        ",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "d03c50ce91286afa7c59ffbfafdc7be48471ce12667f6b7dac0acdf983dc61cb"
+  "hash": "2345c6a8479cac1aa4b35bb8420b1eca1b4f6363d5b5882f50f8af9cf43e54eb"
 }

@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select click_count, last_clicked_at from links\n            where short_code = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "click_count",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "links",
+            "name": "click_count"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "last_clicked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "links",
+            "name": "last_clicked_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "38a0daac7b413b8bef7eb34d91b5c179571e57a65732cf2d2ebf43dfd75b4d5c"
+}

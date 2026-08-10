@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select short_code, day, clicks from link_daily_clicks\n            where short_code = $1 and day >= $2\n            order by day\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "short_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "link_daily_clicks",
+            "name": "short_code"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "day",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "link_daily_clicks",
+            "name": "day"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "clicks",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "link_daily_clicks",
+            "name": "clicks"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f60698248adbab2a0574af8e717b5bb81324415e4463391fcd53d20ddec77c0c"
+}
