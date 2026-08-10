@@ -3,6 +3,7 @@ use std::collections::HashMap;
 pub use common::db_utils::DbError;
 use tracing::instrument;
 
+use crate::db::AnalyticsRepository;
 // todo: check if update_* doesn't lose/overrride data
 
 #[instrument(skip_all)]
@@ -141,7 +142,7 @@ pub async fn update_link_total_and_last_click(
     .map_err(DbError::from)
 }
 
-pub(crate) async fn get_global_daily_clicks_since(
+pub async fn get_global_daily_clicks_since(
     exec: impl sqlx::PgExecutor<'_>,
     date: chrono::NaiveDate,
 ) -> Result<Vec<(chrono::NaiveDate, i64)>, DbError> {
@@ -150,6 +151,7 @@ pub(crate) async fn get_global_daily_clicks_since(
         r#"
             select day, clicks from global_daily_clicks
             where day >= $1
+            order by day
         "#,
         date
     )
@@ -159,7 +161,7 @@ pub(crate) async fn get_global_daily_clicks_since(
     .map_err(DbError::from)
 }
 
-pub(crate) async fn get_link_daily_clicks_since(
+pub async fn get_link_daily_clicks_since(
     exec: impl sqlx::PgExecutor<'_>,
     date: chrono::NaiveDate,
 ) -> Result<Vec<(String, chrono::NaiveDate, i64)>, DbError> {
@@ -175,4 +177,77 @@ pub(crate) async fn get_link_daily_clicks_since(
     .await
     .map(|rows| rows.into_iter().map(|s| (s.short_code, s.day, s.clicks)).collect())
     .map_err(DbError::from)
+}
+
+#[tonic::async_trait]
+impl AnalyticsRepository for sqlx::PgPool {
+    async fn get_link_totals(&self, short_code: &str) -> Result<(i64, Option<chrono::DateTime<chrono::Utc>>), DbError> {
+        get_link_totals(self, short_code).await
+    }
+
+    async fn get_link_stats(&self, short_code: &str, days: i32) -> Result<Vec<(chrono::NaiveDate, i64)>, DbError> {
+        get_link_stats(self, short_code, days).await
+    }
+
+    async fn get_global_total_clicks(&self) -> Result<i64, DbError> { get_global_total_clicks(self).await }
+
+    async fn get_global_daily_stats(&self, days: i32) -> Result<Vec<(chrono::NaiveDate, i64)>, DbError> {
+        let since = (chrono::Utc::now() - chrono::Duration::days(days.into())).date_naive();
+        get_global_daily_clicks_since(self, since).await
+    }
+}
+
+#[instrument(skip(exec))]
+pub async fn get_link_stats(
+    exec: impl sqlx::PgExecutor<'_>,
+    short_code: &str,
+    days: i32,
+) -> Result<Vec<(chrono::NaiveDate, i64)>, DbError> {
+    let since = (chrono::Utc::now() - chrono::Duration::days(days.into())).date_naive();
+    sqlx::query_as!(
+        LinkDailyStats,
+        r#"
+            select short_code, day, clicks from link_daily_clicks
+            where short_code = $1 and day >= $2
+            order by day
+        "#,
+        short_code,
+        since,
+    )
+    .fetch_all(exec)
+    .await
+    .map(|rows| rows.into_iter().map(|r| (r.day, r.clicks)).collect())
+    .map_err(DbError::from)
+}
+
+#[instrument(skip(exec))]
+pub async fn get_global_total_clicks(exec: impl sqlx::PgExecutor<'_>) -> Result<i64, DbError> {
+    sqlx::query_scalar!(
+        r#"
+            select total_clicks as "total_clicks!"
+            from analytics_global
+            where id = 1
+        "#
+    )
+    .fetch_one(exec)
+    .await
+    .map_err(DbError::from)
+}
+
+#[instrument(skip(exec))]
+pub async fn get_link_totals(
+    exec: impl sqlx::PgExecutor<'_>,
+    short_code: &str,
+) -> Result<(i64, Option<chrono::DateTime<chrono::Utc>>), DbError> {
+    let row = sqlx::query!(
+        r#"
+            select click_count, last_clicked_at from links
+            where short_code = $1
+        "#,
+        short_code,
+    )
+    .fetch_one(exec)
+    .await
+    .map_err(DbError::from)?;
+    Ok((row.click_count, row.last_clicked_at)) // todo: type?
 }
