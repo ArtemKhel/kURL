@@ -122,7 +122,10 @@ impl TryFrom<CreateLinkReq> for proto::core::CreateLinkRequest {
 
         let expiration: Option<proto::prost_wkt_types::Timestamp> = match expiration {
             None => None,
-            Some(exp) if exp > chrono::Utc::now() => Some(exp.try_into().map_err(|_| RequestError::InvalidExpiration)?),
+            Some(exp) if exp > chrono::Utc::now() => {
+                #[allow(clippy::unnecessary_fallible_conversions)] // `.into()` fails to infer type
+                Some(exp.try_into().map_err(|_| RequestError::InvalidExpiration)?)
+            },
             Some(_) => return Err(RequestError::InvalidExpiration),
         };
 
