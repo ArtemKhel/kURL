@@ -1,6 +1,6 @@
 [redis]
-#host = "localhost"
-host = "redis"
+host = "localhost"
+#host = "redis"
 port = 6379
 cache_ttl_secs = 60
 
@@ -8,8 +8,8 @@ cache_ttl_secs = 60
 events = "Events"
 
 [database]
-#host = "localhost"
-host = "db"
+host = "localhost"
+#host = "db"
 port = 5432
 user = "postgres"
 password = "postgres"
@@ -34,4 +34,5 @@ flush_interval_secs = 10
 [logging]
 level = "info"
 enabled = true
-otlp_endpoint = "http://alloy:4317"
+#otlp_endpoint = "http://alloy:4317"
+otlp_endpoint = "http://localhost:4317"
