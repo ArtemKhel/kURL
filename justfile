@@ -14,7 +14,7 @@ clippy:
     cargo clippy
 check: fmt clippy
 
-sqlx:
+sqlx-meta:
     #!/usr/bin/env bash
     docker-compose ps db | grep -q "Up" && already_running=true || already_running=false
     
