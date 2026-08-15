@@ -83,7 +83,7 @@ pub struct AnalyticsServiceConfig {
     pub port: u16,
     pub read_batch_size: usize,
     #[serde(deserialize_with = "duration_from_millis")]
-    pub read_block_millis: Duration,
+    pub read_block: Duration,
     #[serde(rename = "flush_interval_secs", deserialize_with = "duration_from_secs")]
     pub flush_interval: Duration,
 }
