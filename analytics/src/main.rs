@@ -4,6 +4,7 @@ pub mod grpc;
 pub mod init;
 pub mod redis_persistence;
 pub mod redis_stats;
+pub mod snapshot;
 
 use std::sync::Arc;
 
@@ -20,7 +21,7 @@ type Config = AnalyticsConfig;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = common::config::load::<AnalyticsConfig>();
     let otel_guard = common::logging::init_tracing(&config.logging, "analytics");
-    info!(?config);
+    info!(?config.analytics, "analytics configuration loaded");
 
     let task_tracker = TaskTracker::new();
     let shutdown = CancellationToken::new();
