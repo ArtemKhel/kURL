@@ -31,15 +31,6 @@ pub enum CacheOp {
     Del { key: String },
 }
 
-/// Spawns the cache write-behind worker and registers it with `tracker`.
-///
-/// On `token` cancellation the worker stops accepting new ops but drains
-/// whatever is already buffered in the channel before it exits, so no
-/// in-flight writes are silently dropped.
-///
-/// Callers retain the [`mpsc::UnboundedSender`] and should drop it (or let
-/// `AppState` drop it) before awaiting `tracker.wait()`, so the drain loop
-/// can observe the closed channel and terminate cleanly.
 #[instrument(skip_all)]
 pub fn spawn_cache_worker(
     redis: deadpool_redis::Pool,

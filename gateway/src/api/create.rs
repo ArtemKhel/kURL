@@ -125,7 +125,7 @@ impl TryFrom<CreateLinkReq> for proto::core::CreateLinkRequest {
             Some(exp) if exp > chrono::Utc::now() => {
                 #[allow(clippy::unnecessary_fallible_conversions)] // `.into()` fails to infer type
                 Some(exp.try_into().map_err(|_| RequestError::InvalidExpiration)?)
-            },
+            }
             Some(_) => return Err(RequestError::InvalidExpiration),
         };
 
