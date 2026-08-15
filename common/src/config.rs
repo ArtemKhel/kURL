@@ -82,8 +82,8 @@ pub struct AnalyticsServiceConfig {
     pub host: String,
     pub port: u16,
     pub read_batch_size: usize,
-    #[serde(deserialize_with = "duration_from_secs")]
-    pub read_block_secs: Duration,
+    #[serde(deserialize_with = "duration_from_millis")]
+    pub read_block_millis: Duration,
     #[serde(rename = "flush_interval_secs", deserialize_with = "duration_from_secs")]
     pub flush_interval: Duration,
 }
@@ -149,7 +149,7 @@ impl AppConfig {
             .set_default("analytics.host", "localhost")?
             .set_default("analytics.port", 3002)?
             .set_default("analytics.read_batch_size", 100)?
-            .set_default("analytics.read_block_secs", 5)?
+            .set_default("analytics.read_block_millis", 250)?
             .set_default("analytics.flush_interval_secs", 60)?
             // Priority 2: TOML file (if it exists)
             .add_source(File::with_name("./config/config.toml").required(false))
@@ -157,9 +157,7 @@ impl AppConfig {
             .add_source(config::Environment::with_prefix("APP").try_parsing(true).separator("_"))
             .build()?;
 
-        config
-            .try_deserialize()
-            .inspect(|config| info!(?config, "config loaded"))
+        config.try_deserialize().inspect(|_| info!("config loaded"))
     }
 }
 
@@ -172,6 +170,12 @@ fn duration_from_secs<'de, D>(deserializer: D) -> Result<Duration, D::Error>
 where D: Deserializer<'de> {
     let secs = u64::deserialize(deserializer)?;
     Ok(Duration::from_secs(secs))
+}
+
+fn duration_from_millis<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+where D: Deserializer<'de> {
+    let millis = u64::deserialize(deserializer)?;
+    Ok(Duration::from_millis(millis))
 }
 
 macro_rules! impl_display {

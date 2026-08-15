@@ -27,7 +27,7 @@ port = 3001
 host = "analytics"
 port = 3002
 read_batch_size = 100
-read_block_secs = 5   # todo: < 0.5
+read_block_millis = 250
 flush_interval_secs = 10
 
 
