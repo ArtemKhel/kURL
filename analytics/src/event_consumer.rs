@@ -46,7 +46,7 @@ impl EventConsumer {
                 Ok(Some(guard)) => {
                     metrics::gauge!("analytics_writer_active").set(1.0);
 
-                    if let Err(error) = self.run_inner(shutdown).await {
+                    if let Err(error) = self.run_inner(&shutdown).await {
                         error!(%error, "analytics writer returned an error");
                     }
 
@@ -70,15 +70,18 @@ impl EventConsumer {
         }
     }
 
-    async fn run_inner(&self, shutdown: CancellationToken) -> anyhow::Result<()> {
+    async fn run_inner(&self, shutdown: &CancellationToken) -> anyhow::Result<()> {
         self.ensure_consumer_group()
             .await
             .context("failed to create consumer group, stopping writer")?;
 
         self.persistence.rehydrate().await.context("failed to rehydrate")?;
 
+        if let Err(error) = self.drain_pending(&shutdown).await {
+            error!(%error, "failed to drain pending events");
+        }
+
         return Ok(());
-        todo!("check for pending entries in redis, process them first");
         todo!("run main event consumer loop");
         // // self.spawn_persistence_task(&task_tracker, shutdown.child_token());
         //
