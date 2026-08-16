@@ -2,6 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, NaiveDate, Utc};
 
+use crate::db::{GlobalDailyStats, LinkDailyStats};
+// todo: move here from db
+
 #[derive(Debug, Default)]
 pub struct RedisSnapshot {
     pub global_daily: HashMap<NaiveDate, i64>,
@@ -17,4 +20,10 @@ pub struct MergeOutcome {
     pub committed_links: HashMap<(String, NaiveDate), i64>,
     pub global_delta: i64,
     pub link_deltas: HashMap<String, i64>,
+}
+
+#[derive(Debug, Default)]
+pub struct RehydrationData {
+    pub global_daily: Vec<GlobalDailyStats>,
+    pub link_daily: Vec<LinkDailyStats>,
 }

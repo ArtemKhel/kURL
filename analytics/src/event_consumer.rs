@@ -23,12 +23,19 @@ const LOCK_RETRY_INTERVAL: std::time::Duration = std::time::Duration::from_secs(
 pub struct EventConsumer {
     redis: deadpool_redis::Pool,
     db: sqlx::PgPool,
+    persistence: Persistence,
     config: crate::Config,
 }
 
 impl EventConsumer {
     pub fn new(redis: deadpool_redis::Pool, db: sqlx::PgPool, config: crate::Config) -> Self {
-        Self { redis, db, config }
+        let persistence = Persistence::new(db.clone(), redis.clone());
+        Self {
+            redis,
+            db,
+            persistence,
+            config,
+        }
     }
 
     #[instrument(skip_all)]
@@ -64,7 +71,11 @@ impl EventConsumer {
             .await
             .context("failed to create consumer group, stopping writer")?;
 
-        todo!()
+        self.persistence.rehydrate().await.context("failed to rehydrate")?;
+
+        return Ok(());
+        todo!("check for pending entries in redis, process them first");
+        todo!("run main event consumer loop");
         // // self.spawn_persistence_task(&task_tracker, shutdown.child_token());
         //
         // // Current version of `deadpool-redis` doesn't allow to override `DEFAULT_RESPONSE_TIMEOUT`
@@ -144,14 +155,14 @@ impl EventConsumer {
             .inspect_err(|e| error!(error = %e, "Error acknowledging ClickEvent in Redis stream"));
     }
 
-    fn spawn_persistence_task(&self, task_tracker: &TaskTracker, shutdown: CancellationToken) {
-        Persistence::spawn(
-            self.db.clone(),
-            self.redis.clone(),
-            task_tracker,
-            shutdown.child_token(),
-        );
-    }
+    // fn spawn_persistence_task(&self, task_tracker: &TaskTracker, shutdown: CancellationToken) {
+    //     Persistence::spawn(
+    //         self.db.clone(),
+    //         self.redis.clone(),
+    //         task_tracker,
+    //         shutdown.child_token(),
+    //     );
+    // }
 
     async fn acquire_writer(&self) -> anyhow::Result<Option<PgAdvisoryLockGuard<PoolConnection<Postgres>>>> {
         let conn = self.db.acquire().await.context("Failed to acquire DB connection")?;

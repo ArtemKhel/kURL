@@ -66,10 +66,10 @@ pub async fn update_global_click_count(exec: impl sqlx::PgExecutor<'_>, count: i
 }
 
 #[derive(Debug)]
-struct LinkDailyStats {
-    short_code: String,
-    day: chrono::NaiveDate,
-    clicks: i64,
+pub struct LinkDailyStats {
+    pub short_code: String,
+    pub day: chrono::NaiveDate,
+    pub clicks: i64,
 }
 #[instrument(skip_all)]
 pub async fn get_link_daily_values(
@@ -93,9 +93,9 @@ pub async fn get_link_daily_values(
 }
 
 #[derive(Debug)]
-struct GlobalDailyStats {
-    day: chrono::NaiveDate,
-    clicks: i64,
+pub struct GlobalDailyStats {
+    pub day: chrono::NaiveDate,
+    pub clicks: i64,
 }
 
 #[instrument(skip_all)]
@@ -145,7 +145,7 @@ pub async fn update_link_total_and_last_click(
 pub async fn get_global_daily_clicks_since(
     exec: impl sqlx::PgExecutor<'_>,
     date: chrono::NaiveDate,
-) -> Result<Vec<(chrono::NaiveDate, i64)>, DbError> {
+) -> Result<Vec<GlobalDailyStats>, DbError> {
     sqlx::query_as!(
         GlobalDailyStats,
         r#"
@@ -157,14 +157,13 @@ pub async fn get_global_daily_clicks_since(
     )
     .fetch_all(exec)
     .await
-    .map(|rows| rows.into_iter().map(|s| (s.day, s.clicks)).collect())
     .map_err(DbError::from)
 }
 
 pub async fn get_link_daily_clicks_since(
     exec: impl sqlx::PgExecutor<'_>,
     date: chrono::NaiveDate,
-) -> Result<Vec<(String, chrono::NaiveDate, i64)>, DbError> {
+) -> Result<Vec<LinkDailyStats>, DbError> {
     sqlx::query_as!(
         LinkDailyStats,
         r#"
@@ -175,7 +174,6 @@ pub async fn get_link_daily_clicks_since(
     )
     .fetch_all(exec)
     .await
-    .map(|rows| rows.into_iter().map(|s| (s.short_code, s.day, s.clicks)).collect())
     .map_err(DbError::from)
 }
 
@@ -193,7 +191,8 @@ impl AnalyticsRepository for sqlx::PgPool {
 
     async fn get_global_daily_stats(&self, days: i32) -> Result<Vec<(chrono::NaiveDate, i64)>, DbError> {
         let since = (chrono::Utc::now() - chrono::Duration::days(days.into())).date_naive();
-        get_global_daily_clicks_since(self, since).await
+        todo!()
+        // get_global_daily_clicks_since(self, since).await
     }
 }
 

@@ -7,7 +7,35 @@ use tracing::{error, instrument};
 
 pub struct RedisStats {}
 
+/// Atomic HMAX: set the field to be the greatest of current and incoming values
+/// KEYS: \[1\] - hash_key
+/// ARGV: \[1\] - field, \[2\] - value
+/// Returns: 1 if the value was updated, 0 if not
+const HMAX_SCRIPT: &str = r#"
+local current = redis.call("HGET", KEYS[1], ARGV[1])
+if not current or tonumber(ARGV[2]) > tonumber(current) then
+    redis.call("HSET", KEYS[1], ARGV[1], ARGV[2])
+    return 1
+end
+return 0
+"#;
+
 impl RedisStats {
+    pub async fn hmax(
+        conn: &mut deadpool_redis::Connection,
+        hash_key: &str,
+        field: &str,
+        value: i64,
+    ) -> RedisResult<bool> {
+        let result: i64 = redis::Script::new(HMAX_SCRIPT)
+            .key(hash_key)
+            .arg(field)
+            .arg(value)
+            .invoke_async(conn)
+            .await?;
+        Ok(result == 1)
+    }
+
     #[instrument(skip(conn))]
     pub async fn record_click(conn: &mut deadpool_redis::Connection, event: &ClickEvent) -> RedisResult<()> {
         let global_key = RedisKeys::global_stats_key();
