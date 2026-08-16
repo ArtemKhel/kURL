@@ -33,6 +33,6 @@ flush_interval_secs = 10
 
 [logging]
 level = "info"
-enabled = true
+enabled = false
 #otlp_endpoint = "http://alloy:4317"
 otlp_endpoint = "http://localhost:4317"
