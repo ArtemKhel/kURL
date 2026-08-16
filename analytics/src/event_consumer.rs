@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use anyhow::Context;
 use common::events::ClickEvent;
 use itertools::Either;
 use redis::{
-    AsyncTypedCommands,
+    AsyncTypedCommands, RedisResult,
     streams::{StreamAutoClaimOptions, StreamDeletionPolicy, StreamId, StreamReadOptions},
 };
 use sqlx::{
@@ -13,7 +15,10 @@ use sqlx::{
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{debug, error, info, instrument, trace, warn};
 
-use crate::{redis_persistence::Persistence, redis_stats::RedisStats};
+use crate::{
+    redis_persistence::Persistence,
+    redis_stats::{EventOutcome, RedisStats},
+};
 
 const CONSUMER_GROUP: &str = "Analytics";
 const CONSUMER_NAME: &str = "worker-0";
@@ -81,7 +86,12 @@ impl EventConsumer {
             error!(%error, "failed to drain pending events");
         }
 
-        return Ok(());
+        loop {
+            if shutdown.is_cancelled() {
+                return Ok(());
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
         todo!("run main event consumer loop");
         // // self.spawn_persistence_task(&task_tracker, shutdown.child_token());
         //
@@ -129,37 +139,67 @@ impl EventConsumer {
         // }
     }
 
-    async fn process_entry(&self, conn: &mut deadpool_redis::Connection, entry: &StreamId) {
-        let event: Option<ClickEvent> = entry.map.get("event").and_then(|v| match v {
+    fn parse_click_event(entry: &StreamId) -> Option<ClickEvent> {
+        let value = entry.map.get("event")?;
+        match value {
             redis::Value::BulkString(bytes) => serde_json::from_slice(bytes)
-                .map_err(|e| error!(error = %e, "Error deserializing ClickEvent from BulkString"))
+                .map_err(|error| warn!(%error, entry_id  = entry.id, "malformed ClickEvent (BulkString)"))
                 .ok(),
             redis::Value::SimpleString(s) => serde_json::from_str(s)
-                .map_err(|e| error!(error = %e, "Error deserializing ClickEvent from SimpleString"))
+                .map_err(|error| {
+                    warn!(%error, entry_id = %entry.id, "malformed ClickEvent (SimpleString)");
+                })
                 .ok(),
             _ => {
-                warn!(value = ?v, "Unexpected value in ClickEvent entry");
+                warn!(entry_id = %entry.id,"unexpected Redis value type in ClickEvent entry");
                 None
             }
-        });
-
-        if let Some(event) = event
-            && let Err(e) = RedisStats::record_click(conn, &event).await
-        {
-            error!(error = %e, "Error recording ClickEvent from stats_counter");
         }
+    }
 
-        // todo: batch ack
-        // prob should check status code
-        let _ = conn
-            .xack_del(
-                &self.config.redis.streams.events,
-                CONSUMER_GROUP,
-                std::slice::from_ref(&entry.id),
-                StreamDeletionPolicy::Acked,
-            )
-            .await
-            .inspect_err(|e| error!(error = %e, "Error acknowledging ClickEvent in Redis stream"));
+    // todo:
+    async fn process_entry(&self, conn: &mut deadpool_redis::Connection, entry: &StreamId) {
+        let Ok(mut conn) = self.redis.get().await else {
+            error!("failed to get redis connection");
+            return;
+        };
+
+        match Self::parse_click_event(entry) {
+            Some(event) => {
+                match RedisStats::record_click_event(
+                    &mut conn,
+                    &self.config.redis.streams.events,
+                    CONSUMER_GROUP,
+                    &entry.id,
+                    &event,
+                )
+                .await
+                {
+                    Ok(EventOutcome::Applied) => {
+                        metrics::counter!("analytics.events_processed").increment(1);
+                    }
+                    Ok(EventOutcome::AlreadyHandled) => {}
+                    Err(error) => {
+                        warn!(%error, "failed to process event due to redis script error");
+                    }
+                }
+            }
+            None => {
+                match RedisStats::drop_click_event(
+                    &mut conn,
+                    &self.config.redis.streams.events,
+                    CONSUMER_GROUP,
+                    &entry.id,
+                )
+                .await
+                {
+                    Ok(()) => {}
+                    Err(error) => {
+                        warn!(%error, "failed to drop event due to redis script error");
+                    }
+                }
+            }
+        }
     }
 
     async fn drain_pending(&self, shutdown: &CancellationToken) -> anyhow::Result<()> {
