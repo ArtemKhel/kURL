@@ -31,8 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let event_consumer = EventConsumer::new(redis.clone(), db.clone(), config.clone());
     let consumer_shutdown = shutdown.child_token();
-    let consumer_tt = task_tracker.clone();
-    task_tracker.spawn(async move { event_consumer.run(consumer_tt, consumer_shutdown).await });
+    task_tracker.spawn(async move { event_consumer.run(consumer_shutdown).await });
 
     let analytics_grpc = AnalyticsServer::new(AnalyticsService {
         db: Arc::new(db.clone()),
