@@ -3,7 +3,7 @@ use common::events::ClickEvent;
 use itertools::Either;
 use redis::{
     AsyncTypedCommands,
-    streams::{StreamDeletionPolicy, StreamId, StreamReadOptions},
+    streams::{StreamAutoClaimOptions, StreamDeletionPolicy, StreamId, StreamReadOptions},
 };
 use sqlx::{
     Postgres,
@@ -19,6 +19,7 @@ const CONSUMER_GROUP: &str = "Analytics";
 const CONSUMER_NAME: &str = "worker-0";
 const ANALYTICS_WRITER_LOCK_ID: i64 = 1_234_567;
 const LOCK_RETRY_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+const XAUTOCLAIM_MIN_IDLE_MS: u64 = 0;
 
 pub struct EventConsumer {
     redis: deadpool_redis::Pool,
@@ -155,14 +156,46 @@ impl EventConsumer {
             .inspect_err(|e| error!(error = %e, "Error acknowledging ClickEvent in Redis stream"));
     }
 
-    // fn spawn_persistence_task(&self, task_tracker: &TaskTracker, shutdown: CancellationToken) {
-    //     Persistence::spawn(
-    //         self.db.clone(),
-    //         self.redis.clone(),
-    //         task_tracker,
-    //         shutdown.child_token(),
-    //     );
-    // }
+    async fn drain_pending(&self, shutdown: &CancellationToken) -> anyhow::Result<()> {
+        let mut total_claimed = 0u64;
+        loop {
+            if shutdown.is_cancelled() {
+                break;
+            };
+            let claimed = self.drain_pending_batch(shutdown).await?;
+            if claimed == 0 {
+                break;
+            }
+            total_claimed += claimed;
+        }
+        info!(total_claimed = %total_claimed, "drained pending events");
+        Ok(())
+    }
+
+    async fn drain_pending_batch(&self, shutdown: &CancellationToken) -> anyhow::Result<u64> {
+        let mut conn = self.redis.get().await?;
+        let opts = StreamAutoClaimOptions::default().count(self.config.analytics.read_batch_size);
+
+        let reply = conn
+            .xautoclaim_options(
+                &self.config.redis.streams.events,
+                CONSUMER_GROUP,
+                CONSUMER_NAME,
+                XAUTOCLAIM_MIN_IDLE_MS,
+                "0-0",
+                opts,
+            )
+            .await?;
+
+        let claimed_count = reply.claimed.len() as u64;
+        metrics::counter!("analytics.claimed_events").increment(claimed_count);
+
+        for entry in reply.claimed {
+            self.process_entry(&mut conn, &entry).await;
+        }
+
+        Ok(claimed_count)
+    }
 
     async fn acquire_writer(&self) -> anyhow::Result<Option<PgAdvisoryLockGuard<PoolConnection<Postgres>>>> {
         let conn = self.db.acquire().await.context("Failed to acquire DB connection")?;
