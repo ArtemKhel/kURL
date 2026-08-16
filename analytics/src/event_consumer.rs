@@ -40,14 +40,16 @@ impl EventConsumer {
     }
 
     #[instrument(skip_all)]
-    pub async fn run(self, task_tracker: TaskTracker, shutdown: CancellationToken) {
+    pub async fn run(self, shutdown: CancellationToken) {
         loop {
             match self.acquire_writer().await {
                 Ok(Some(guard)) => {
                     metrics::gauge!("analytics_writer_active").set(1.0);
-                    if let Err(error) = self.run_inner().await {
+
+                    if let Err(error) = self.run_inner(shutdown).await {
                         error!(%error, "analytics writer returned an error");
                     }
+
                     metrics::gauge!("analytics_writer_active").set(0.0);
                     if let Err(error) = guard.release_now().await {
                         error!(%error, "failed to release writer lock");
@@ -56,6 +58,7 @@ impl EventConsumer {
                 Ok(None) => trace!("analytics writer lock is held by another instance"),
                 Err(error) => warn!(%error, "failed to acquire writer lock"),
             }
+
             tokio::select! {
                 biased;
                 _ = shutdown.cancelled() => {
@@ -67,7 +70,7 @@ impl EventConsumer {
         }
     }
 
-    async fn run_inner(&self) -> anyhow::Result<()> {
+    async fn run_inner(&self, shutdown: CancellationToken) -> anyhow::Result<()> {
         self.ensure_consumer_group()
             .await
             .context("failed to create consumer group, stopping writer")?;
