@@ -26,6 +26,7 @@ dependencies = [
  "common",
  "deadpool-redis",
  "itertools 0.15.0",
+ "metrics",
  "proto",
  "redis",
  "serde",

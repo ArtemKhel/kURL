@@ -24,11 +24,11 @@ impl EventConsumer {
 
     #[instrument(skip(self))]
     pub async fn run(self, task_tracker: TaskTracker, shutdown: CancellationToken) {
-        // todo: on restart?
-
-        self.ensure_consumer_group()
-            .await
-            .unwrap_or_else(|e| error!(error=?e, "Failed to create event consumer group"));
+        if let Err(e) = self.ensure_consumer_group().await {
+            error!(error = ?e, "failed to create consumer group, stopping writer");
+            metrics::gauge!("analytics_writer_active").set(0.0);
+            return;
+        }
         self.spawn_persistence_task(&task_tracker, shutdown.child_token());
 
         // Current version of `deadpool-redis` doesn't allow to override `DEFAULT_RESPONSE_TIMEOUT`
@@ -119,12 +119,11 @@ impl EventConsumer {
 
     async fn ensure_consumer_group(&self) -> anyhow::Result<()> {
         let mut conn = self.redis.get().await?;
-        let consumer_group = CONSUMER_GROUP;
         let res = conn
-            .xgroup_create_mkstream(&self.config.redis.streams.events, consumer_group, "0")
+            .xgroup_create_mkstream(&self.config.redis.streams.events, CONSUMER_GROUP, "0")
             .await;
         match res {
-            Ok(_) => info!(consumer_group, "Created consumer group"),
+            Ok(_) => info!(CONSUMER_GROUP, "Created consumer group"),
             Err(e) if e.to_string().contains("BUSYGROUP") => debug!("Consumer group already exists"),
             Err(e) => return Err(e.into()),
         }
