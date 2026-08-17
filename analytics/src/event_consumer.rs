@@ -92,51 +92,6 @@ impl EventConsumer {
         self.event_loop(&shutdown).await?;
 
         todo!("flush")
-
-        // // self.spawn_persistence_task(&task_tracker, shutdown.child_token());
-        //
-        // // Current version of `deadpool-redis` doesn't allow to override `DEFAULT_RESPONSE_TIMEOUT`
-        // // in `redis::AsyncConnectionOptions` for an underlying client
-        // // making blocking for longer than 0.5s impossible
-        // let opts = StreamReadOptions::default()
-        //     .group(CONSUMER_GROUP, CONSUMER_NAME)
-        //     .count(self.config.analytics.read_batch_size)
-        //     .block(250);
-        //
-        // loop {
-        //     let Ok(mut conn) = self.redis.get().await else {
-        //         error!("Failed to get Redis connection");
-        //         continue;
-        //     };
-        //     let stream_keys = [&self.config.redis.streams.events];
-        //     let stream_ids = [">"];
-        //
-        //     let reply = tokio::select! {
-        //         _ = shutdown.cancelled() => {
-        //             info!("Shutdown requested, stopping analytics consumer loop");
-        //             break;
-        //         }
-        //         reply = conn.xread_options(&stream_keys, &stream_ids, &opts) => reply,
-        //     };
-        //
-        //     let reply = match reply {
-        //         Ok(Some(r)) => r,
-        //         Ok(None) => {
-        //             trace!("No new events in Redis stream, continuing");
-        //             continue;
-        //         }
-        //         Err(e) => {
-        //             warn!(error = %e, "Error reading from Redis stream, retrying");
-        //             continue;
-        //         }
-        //     };
-        //
-        //     for key in reply.keys {
-        //         for entry in key.ids {
-        //             self.process_entry(&mut conn, &entry).await;
-        //         }
-        //     }
-        // }
     }
 
     #[instrument(skip_all)]

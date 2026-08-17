@@ -46,10 +46,10 @@ impl link_service_server::LinkService for LinkService {
             .db_pool
             .create_link(&short_code, &target, expiration)
             .await
-            .map_err(|e| match e {
+            .map_err(|error| match error {
                 DbError::Conflict(_) => Status::already_exists("Short code already exists"),
                 _ => {
-                    error!(error = % e, "Database error while creating link");
+                    error!(%error, "Database error while creating link");
                     Status::internal("Failed to create link")
                 }
             })?;
@@ -63,7 +63,7 @@ impl link_service_server::LinkService for LinkService {
                     value: target.clone(),
                     ttl,
                 })
-                .map_err(|e| error!(error = % e, "Cache worker channel is closed"));
+                .map_err(|error| error!(%error, "Cache worker channel is closed"));
         }
 
         info!("Link created successfully");
@@ -74,13 +74,18 @@ impl link_service_server::LinkService for LinkService {
     async fn get_link(&self, request: Request<GetLinkRequest>) -> Result<Response<GetLinkResponse>, Status> {
         let GetLinkRequest { short_code } = request.into_inner();
 
-        let link = self.state.db_pool.get_link(&short_code).await.map_err(|e| match e {
-            DbError::NotFound => Status::not_found("Short code not found"),
-            _ => {
-                error!(error=%e, "Database error while getting the link");
-                Status::internal("Failed to get link")
-            }
-        })?;
+        let link = self
+            .state
+            .db_pool
+            .get_link(&short_code)
+            .await
+            .map_err(|error| match error {
+                DbError::NotFound => Status::not_found("Short code not found"),
+                _ => {
+                    error!(%error, "Database error while getting the link");
+                    Status::internal("Failed to get link")
+                }
+            })?;
 
         if link.expiration.is_some_and(|expiration| expiration <= Utc::now()) {
             return Err(Status::failed_precondition("Link has expired"));
@@ -95,7 +100,7 @@ impl link_service_server::LinkService for LinkService {
                     value: link.target.clone(),
                     ttl,
                 })
-                .map_err(|e| error!(error=%e, "Cache worker channel is closed"));
+                .map_err(|error| error!(%error, "Cache worker channel is closed"));
         }
 
         info!(target = %link.target, "Link found");
@@ -106,18 +111,26 @@ impl link_service_server::LinkService for LinkService {
     async fn delete_link(&self, request: Request<DeleteLinkRequest>) -> Result<Response<()>, Status> {
         let DeleteLinkRequest { short_code } = request.into_inner();
 
-        self.state.db_pool.delete_link(&short_code).await.map_err(|e| match e {
-            DbError::NotFound => Status::not_found("Short code not found"),
-            _ => {
-                error!(error=%e, "Database error while deleting the link");
-                Status::internal("Failed to delete link")
-            }
-        })?;
+        self.state
+            .db_pool
+            .delete_link(&short_code)
+            .await
+            .map_err(|error| match error {
+                DbError::NotFound => Status::not_found("Short code not found"),
+                _ => {
+                    error!(%error, "Database error while deleting the link");
+                    Status::internal("Failed to delete link")
+                }
+            })?;
         info!(short_code, "Link deleted successfully");
 
-        let _ = self.state.redis_tx.send(CacheOp::Del { key: short_code }).map_err(|e| {
-            error!(error=%e, "Cache worker channel is closed");
-        });
+        let _ = self
+            .state
+            .redis_tx
+            .send(CacheOp::Del { key: short_code })
+            .map_err(|error| {
+                error!(%error, "Cache worker channel is closed");
+            });
 
         Ok(Response::new(()))
     }

@@ -67,10 +67,10 @@ pub async fn link_stats(
                     .unwrap_or_default()
             }),
         })),
-        Err(e) => match e.code() {
+        Err(error) => match error.code() {
             Code::NotFound => Err(StatusCode::NOT_FOUND),
             _ => {
-                warn!(error = %e, "Failed to get link stats");
+                warn!(%error, "Failed to get link stats");
                 Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
         },

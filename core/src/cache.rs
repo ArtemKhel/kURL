@@ -71,8 +71,8 @@ pub fn spawn_cache_worker(
 async fn process_op(redis: &deadpool_redis::Pool, op: CacheOp) {
     let mut conn = match redis.get().await {
         Ok(c) => c,
-        Err(e) => {
-            error!(error = %e, "pool error, dropping op");
+        Err(error) => {
+            error!(%error, "pool error, dropping op");
             return;
         }
     };
@@ -86,7 +86,7 @@ async fn process_op(redis: &deadpool_redis::Pool, op: CacheOp) {
         }
         CacheOp::Del { key } => conn.del(RedisKeys::link_cache_key(key)).await.map(|_| ()),
     };
-    if let Err(e) = result {
-        warn!(error = %e, operation=?op, "cache op failed");
+    if let Err(error) = result {
+        warn!(%error, operation=?op, "cache op failed");
     }
 }

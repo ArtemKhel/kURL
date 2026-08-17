@@ -45,11 +45,11 @@ pub async fn create(
             info!(monotonic_counter.gateway_links_created_tracing = 1);
             Ok(Json(response.into()))
         }
-        Err(e) => match e.code() {
+        Err(error) => match error.code() {
             Code::AlreadyExists => Err(RequestError::AlreadyExists),
             Code::InvalidArgument => todo!("also check other codes and handlers"),
             _ => {
-                warn!(error = %e, "Failed to create link");
+                warn!(%error, "Failed to create link");
                 Err(RequestError::Internal)
             }
         },

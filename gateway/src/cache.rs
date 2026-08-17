@@ -10,13 +10,13 @@ pub async fn redis_query(state: &SharedState, short_code: String) -> Option<Stri
         .redis
         .get()
         .await
-        .map_err(|e| error!(error=%e, "Failed to get Redis connection"))
+        .map_err(|error| error!(%error, "Failed to get Redis connection"))
         .ok()?;
 
     redis_conn
         .get(RedisKeys::link_cache_key(&short_code))
         .await
-        .map_err(|e| error!(error=%e, "Redis query failed"))
+        .map_err(|error| error!(%error, "Redis query failed"))
         .ok()?
 }
 
@@ -25,8 +25,8 @@ pub async fn send_click_event(state: &SharedState, short_code: &str) {
     let short_code = short_code.to_string();
     let state = state.clone();
     tokio::spawn(async move {
-        if let Err(e) = inner_send_click_event(state, short_code).await {
-            error!(error = %e, "Failed to send click event");
+        if let Err(error) = inner_send_click_event(state, short_code).await {
+            error!(%error, "Failed to send click event");
         }
     });
 }

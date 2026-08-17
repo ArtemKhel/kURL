@@ -47,7 +47,7 @@ pub async fn redirect(
             send_click_event(&state, &short_code).await;
             Ok(Redirect::permanent(&target.target))
         }
-        Err(e) => match e.code() {
+        Err(error) => match error.code() {
             Code::NotFound => {
                 info!("Short code not found");
                 Err(StatusCode::NOT_FOUND)
@@ -57,7 +57,7 @@ pub async fn redirect(
                 Err(StatusCode::GONE)
             }
             _ => {
-                warn!(error = %e, "Failed to get link");
+                warn!(%error, "Failed to get link");
                 Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
         },
