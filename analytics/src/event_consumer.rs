@@ -4,15 +4,15 @@ use anyhow::Context;
 use common::events::ClickEvent;
 use itertools::Either;
 use redis::{
-    AsyncTypedCommands, RedisResult,
-    streams::{StreamAutoClaimOptions, StreamDeletionPolicy, StreamId, StreamReadOptions},
+    AsyncTypedCommands,
+    streams::{StreamAutoClaimOptions, StreamId, StreamReadOptions},
 };
 use sqlx::{
     Postgres,
     pool::PoolConnection,
     postgres::{PgAdvisoryLock, PgAdvisoryLockGuard, PgAdvisoryLockKey},
 };
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::{
@@ -85,11 +85,11 @@ impl EventConsumer {
 
         self.persistence.rehydrate().await.context("failed to rehydrate")?;
 
-        if let Err(error) = self.drain_pending(&shutdown).await {
+        if let Err(error) = self.drain_pending(shutdown).await {
             error!(%error, "failed to drain pending events");
         }
 
-        self.event_loop(&shutdown).await;
+        self.event_loop(shutdown).await;
 
         self.persistence
             .flush()
@@ -149,7 +149,7 @@ impl EventConsumer {
         let mut conn = self.redis.get().await.context("Failed to get redis connection")?;
         let stream_keys = [&self.config.redis.streams.events];
         let stream_ids = [">"];
-        let reply = conn.xread_options(&stream_keys, &stream_ids, &opts).await?;
+        let reply = conn.xread_options(&stream_keys, &stream_ids, opts).await?;
 
         Ok(reply.map(|r| r.keys.into_iter().flat_map(|k| k.ids.into_iter()).collect()))
     }

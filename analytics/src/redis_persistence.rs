@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Context;
 use chrono::{Duration, NaiveDate, Utc};
@@ -70,7 +67,7 @@ impl Persistence {
             return Ok(());
         }
 
-        let res = match self.db.merge_snapshot(&snapshot).await {
+        let _res = match self.db.merge_snapshot(&snapshot).await {
             Ok(outcome) => {
                 dbg!(outcome)
             }
