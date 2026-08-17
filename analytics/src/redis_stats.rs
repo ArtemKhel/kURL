@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
+use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use common::{events::ClickEvent, redis_keys::RedisKeys};
 use redis::{AsyncTypedCommands, RedisError, RedisResult, streams::StreamDeletionPolicy};
-use tracing::{error, instrument};
+use tracing::instrument;
 
 pub struct RedisStats {}
 
@@ -126,28 +127,29 @@ impl RedisStats {
     pub async fn last_clicked_at_batch(
         conn: &mut deadpool_redis::Connection,
         short_codes: &[String],
-    ) -> RedisResult<HashMap<String, DateTime<Utc>>> {
+    ) -> anyhow::Result<HashMap<String, DateTime<Utc>>> {
         if short_codes.is_empty() {
             return Ok(HashMap::new());
         }
 
         let keys: Vec<String> = short_codes
             .iter()
-            .map(|s| RedisKeys::link_last_clicked_at_key(s))
+            .map(|code| RedisKeys::link_last_clicked_at_key(code))
             .collect();
-        let values = conn.mget(keys).await?;
-        Ok(short_codes
+
+        let values: Vec<Option<String>> = conn.mget(keys).await?;
+
+        short_codes
             .iter()
             .cloned()
             .zip(values)
-            .filter_map(|(c, v)| {
-                v.and_then(|v| {
-                    v.parse::<DateTime<Utc>>()
-                        .inspect_err(|e| error!(error=?e, "Failed to parse date from Redis"))
-                        .ok()
-                        .map(|v| (c, v))
-                })
+            .filter_map(|(code, value)| value.map(|value| (code, value)))
+            .map(|(code, value)| {
+                let at = value
+                    .parse::<DateTime<Utc>>()
+                    .map_err(|_| anyhow!("invalid last-click timestamp for {code}: {value}"))?;
+                Ok((code, at))
             })
-            .collect())
+            .collect()
     }
 }

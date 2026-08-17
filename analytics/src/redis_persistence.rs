@@ -1,15 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Context;
 use chrono::{Duration, NaiveDate, Utc};
 use common::{db_utils::DbError, redis_keys::RedisKeys};
 use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 use crate::{
-    db::{self, SnapshotRepository},
+    db::{self, AnalyticsRepository, SnapshotRepository},
     redis_stats::RedisStats,
+    snapshot::RedisSnapshot,
 };
 
 // todo: from config
@@ -18,6 +18,7 @@ const ROLLING_WINDOW_DAYS: i64 = 7;
 const STALE_GRACE_DAYS: i64 = 1;
 const SCAN_BATCH_SIZE: usize = 100;
 
+// TODO: metrics
 pub struct Persistence {
     db: sqlx::PgPool,
     redis: deadpool_redis::Pool,
@@ -62,49 +63,84 @@ impl Persistence {
         Ok(())
     }
 
-    //
-    // pub fn spawn(
-    //     db: sqlx::PgPool,
-    //     redis: deadpool_redis::Pool,
-    //     task_tracker: &TaskTracker,
-    //     shutdown: CancellationToken,
-    // ) {
-    //     task_tracker.spawn(async move {
-    //         let persistence = Persistence::new(db, redis);
-    //         if let Err(e) = persistence.rehydrate().await {
-    //             error!(error = %e, "rehydration failed");
-    //             return;
-    //         }
-    //         let mut ticker = tokio::time::interval(FLUSH_INTERVAL);
-    //         loop {
-    //             tokio::select! {
-    //                 _ = shutdown.cancelled() => {
-    //                     info!("Shutdown requested, snapshotting redis streams to DB");
-    //                     if let Err(e) = persistence.snapshot_and_trim().await {
-    //                         error!(error = %e, "snapshot_and_trim failed");
-    //                     }
-    //                     info!("Shutdown complete");
-    //                     return
-    //                 },
-    //                 _ = ticker.tick() => {
-    //                     if let Err(e) = persistence.snapshot_and_trim().await {
-    //                         error!(error = %e, "snapshot_and_trim failed");
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     });
-    // }
-    //
-    // /// Repopulates Redis's day-bucket hashes from Postgres's snapshot tables
-    // #[instrument(skip(self))]
-    // pub async fn rehydrate(&self) -> anyhow::Result<()> {
-    //     let window_start = (chrono::Utc::now() - Duration::days(ROLLING_WINDOW_DAYS)).date_naive();
-    //     self.rehydrate_global(window_start).await;
-    //     self.rehydrate_links(window_start).await;
-    //     Ok(())
-    // }
-    //
+    #[instrument(skip_all)]
+    pub async fn flush(&self) -> anyhow::Result<()> { todo!() }
+
+    #[instrument(skip_all)]
+    async fn capture_snapshot(&self) -> anyhow::Result<RedisSnapshot> {
+        let cutoff = stale_cutoff();
+        let key_pattern = RedisKeys::link_stats_key("*");
+        let key_prefix = RedisKeys::link_stats_key("");
+
+        let mut snapshot = RedisSnapshot::default();
+
+        // Per-link daily stats
+        let mut scan_conn = self.redis.get().await.context("failed to get redis connection")?;
+        let mut cmd_conn = self.redis.get().await.context("failed to get redis connection")?;
+
+        let scan_opts = ScanOptions::default()
+            .with_count(SCAN_BATCH_SIZE)
+            .with_pattern(&key_pattern);
+        let mut iter: AsyncIter<String> = scan_conn.scan_options(scan_opts).await?;
+
+        while let Some(key) = iter.next_item().await {
+            let key = match key {
+                Ok(key) => key,
+                Err(e) => {
+                    error!(error = %e, "SCAN yielded an error entry, aborting");
+                    return Err(e.into());
+                }
+            };
+            let Some(short_code) = key.strip_prefix(&key_prefix) else {
+                error!(%key, "link stats key missing expected prefix, skipping");
+                continue;
+            };
+
+            let fields = cmd_conn.hgetall(&key).await?;
+            let (parsed, malformed) = parse_daily_counts(fields);
+
+            for (date, count) in parsed {
+                snapshot.link_daily.insert((short_code.to_string(), date), count);
+            }
+
+            metrics::counter!("analytics.malformed_redis_fields").increment(malformed.len() as u64)
+        }
+
+        // Global daily stats
+        let global_key = RedisKeys::global_stats_key();
+        let global_fields: HashMap<String, String> = cmd_conn.hgetall(&global_key).await?;
+        let (global_parsed, global_malformed) = parse_daily_counts(global_fields);
+
+        snapshot.global_daily = global_parsed;
+        metrics::counter!("analytics.malformed_redis_fields").increment(global_malformed.len() as u64);
+
+        // Last clicked ats
+        let link_codes: Vec<String> = snapshot
+            .link_daily
+            .keys()
+            .map(|(code, _)| code.clone())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        snapshot.last_clicked_at = RedisStats::last_clicked_at_batch(&mut cmd_conn, &link_codes)
+            .await
+            .context("failed to fetch last clicked at timestamps")?;
+
+        snapshot.stale_global = stale_global_fields(&snapshot.global_daily, cutoff);
+        snapshot.stale_links = stale_link_fields(&snapshot.link_daily, cutoff);
+
+        // pub struct RedisSnapshot {
+        //     pub global_daily: HashMap<NaiveDate, i64>,
+        //     pub link_daily: HashMap<(String, NaiveDate), i64>,
+        //     pub last_clicked_at: HashMap<String, DateTime<Utc>>,
+        //     pub stale_global: HashSet<NaiveDate>,
+        //     pub stale_links: HashSet<(String, NaiveDate)>,
+        // }
+
+        Ok(snapshot)
+    }
+
     // async fn rehydrate_global(&self, window_start: NaiveDate) {
     //     let snapshot = match db::get_global_daily_clicks_since(&self.db, window_start).await {
     //         Ok(rows) => rows,
@@ -382,31 +418,61 @@ impl Persistence {
     // }
 }
 
+// todo: move?
+#[derive(Debug)]
+pub struct MalformedField {
+    pub key: String,
+    pub value: String,
+    pub reason: &'static str,
+}
+
 fn rolling_window_start() -> NaiveDate { (Utc::now() - Duration::days(ROLLING_WINDOW_DAYS)).date_naive() }
+
 fn stale_cutoff() -> NaiveDate { (Utc::now() - Duration::days(ROLLING_WINDOW_DAYS + STALE_GRACE_DAYS)).date_naive() }
 
-/// Parses and splits Redis hash of `date_string -> click_count_string` fields into fresh entries and stale entries
-fn partition_daily_counts(fields: HashMap<String, String>, cutoff: NaiveDate) -> (Vec<(NaiveDate, i64)>, Vec<String>) {
-    let mut fresh = Vec::with_capacity(fields.len());
-    let mut stale = Vec::new();
+pub fn stale_global_fields(daily: &HashMap<NaiveDate, i64>, cutoff: NaiveDate) -> HashSet<NaiveDate> {
+    daily.keys().filter(|&d| *d < cutoff).copied().collect()
+}
 
-    for (date_str, clicks_str) in fields {
-        let (date, clicks) = match (date_str.parse::<NaiveDate>(), clicks_str.parse::<i64>()) {
-            (Ok(date), Ok(clicks)) => (date, clicks),
-            _ => {
-                warn!(date = %date_str, clicks = %clicks_str, "failed to parse Redis hash, skipping");
+pub fn stale_link_fields(daily: &HashMap<(String, NaiveDate), i64>, cutoff: NaiveDate) -> HashSet<(String, NaiveDate)> {
+    daily.keys().filter(|(_, d)| *d < cutoff).cloned().collect()
+}
+
+fn parse_daily_counts(fields: HashMap<String, String>) -> (HashMap<NaiveDate, i64>, Vec<MalformedField>) {
+    let mut valid = HashMap::with_capacity(fields.len());
+    let mut malformed = Vec::new();
+
+    for (date_str, count_str) in fields {
+        let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") else {
+            malformed.push(MalformedField {
+                key: date_str,
+                value: count_str,
+                reason: "invalid date format",
+            });
+            continue;
+        };
+        let clicks = match count_str.parse::<i64>() {
+            Ok(c) if c >= 0 => c,
+            Ok(_) => {
+                malformed.push(MalformedField {
+                    key: date_str,
+                    value: count_str,
+                    reason: "negative count",
+                });
+                continue;
+            }
+            Err(_) => {
+                malformed.push(MalformedField {
+                    key: date_str,
+                    value: count_str,
+                    reason: "invalid count",
+                });
                 continue;
             }
         };
-
-        if date < cutoff {
-            stale.push(date_str);
-        } else {
-            fresh.push((date, clicks));
-        }
+        valid.insert(date, clicks);
     }
-
-    (fresh, stale)
+    (valid, malformed)
 }
 
 fn log_db_error(err: &DbError, context: &str) {
