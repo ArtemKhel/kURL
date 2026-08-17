@@ -16,15 +16,18 @@ password = "postgres"
 db_name = "kurlyk"
 
 [gateway]
-host = "gateway"
+host = "localhost"
+#host = "gateway"
 port = 3000
 
 [core]
-host = "core"
+host = "localhost"
+#host = "core"
 port = 3001
 
 [analytics]
-host = "analytics"
+host = "localhost"
+#host = "analytics"
 port = 3002
 read_batch_size = 100
 read_block_millis = 250
