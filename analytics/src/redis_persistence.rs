@@ -7,13 +7,12 @@ use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
 use tracing::{error, info, instrument, warn};
 
 use crate::{
-    db::{self, AnalyticsRepository, SnapshotRepository},
+    db::{AnalyticsRepository, SnapshotRepository},
     redis_stats::RedisStats,
     snapshot::RedisSnapshot,
 };
 
 // todo: from config
-const FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
 const ROLLING_WINDOW_DAYS: i64 = 7;
 const STALE_GRACE_DAYS: i64 = 1;
 const SCAN_BATCH_SIZE: usize = 100;
