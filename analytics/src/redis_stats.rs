@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use anyhow::anyhow;
-use chrono::{DateTime, Utc};
+use anyhow::Context;
+use chrono::{DateTime, TimeZone, Utc};
 use common::{events::ClickEvent, redis_keys::RedisKeys};
 use redis::{AsyncTypedCommands, RedisError, RedisResult, streams::StreamDeletionPolicy};
 use tracing::instrument;
@@ -137,7 +137,10 @@ impl RedisStats {
             .map(|code| RedisKeys::link_last_clicked_at_key(code))
             .collect();
 
-        let values: Vec<Option<String>> = conn.mget(keys).await?;
+        let values: Vec<Option<String>> = conn
+            .mget(keys)
+            .await
+            .context("failed to fetch last clicked timestamps")?;
 
         short_codes
             .iter()
@@ -145,9 +148,13 @@ impl RedisStats {
             .zip(values)
             .filter_map(|(code, value)| value.map(|value| (code, value)))
             .map(|(code, value)| {
-                let at = value
-                    .parse::<DateTime<Utc>>()
-                    .map_err(|_| anyhow!("invalid last-click timestamp for {code}: {value}"))?;
+                let ts = value
+                    .parse::<i64>()
+                    .with_context(|| format!("invalid Redis last_clicked_at timestamp for {code}: {value}"))?;
+                let at = Utc
+                    .timestamp_millis_opt(ts)
+                    .single()
+                    .with_context(|| format!("out-of-range timestamp for {code}: {ts}"))?;
                 Ok((code, at))
             })
             .collect()

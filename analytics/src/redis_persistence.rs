@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::Context;
 use chrono::{Duration, NaiveDate, Utc};
@@ -6,11 +9,7 @@ use common::{db_utils::DbError, redis_keys::RedisKeys};
 use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
 use tracing::{error, info, instrument, warn};
 
-use crate::{
-    db::{AnalyticsRepository, SnapshotRepository},
-    redis_stats::RedisStats,
-    snapshot::RedisSnapshot,
-};
+use crate::{db::SnapshotRepository, redis_stats::RedisStats, snapshot::RedisSnapshot};
 
 // todo: from config
 const ROLLING_WINDOW_DAYS: i64 = 7;
@@ -63,7 +62,26 @@ impl Persistence {
     }
 
     #[instrument(skip_all)]
-    pub async fn flush(&self) -> anyhow::Result<()> { todo!() }
+    pub async fn flush(&self) -> anyhow::Result<()> {
+        let snapshot = self.capture_snapshot().await?;
+
+        if snapshot.global_daily.is_empty() && snapshot.link_daily.is_empty() {
+            metrics::counter!("analytics.snapshot_success_total").increment(1);
+            return Ok(());
+        }
+
+        let res = match self.db.merge_snapshot(&snapshot).await {
+            Ok(outcome) => {
+                dbg!(outcome)
+            }
+            Err(error) => {
+                metrics::counter!("analytics.snapshot_failures_total").increment(1);
+                anyhow::bail!(error);
+            }
+        };
+
+        Ok(())
+    }
 
     #[instrument(skip_all)]
     async fn capture_snapshot(&self) -> anyhow::Result<RedisSnapshot> {
@@ -124,7 +142,7 @@ impl Persistence {
 
         snapshot.last_clicked_at = RedisStats::last_clicked_at_batch(&mut cmd_conn, &link_codes)
             .await
-            .context("failed to fetch last clicked at timestamps")?;
+            .context("failed to fetch 'last_clicked_at' timestamps")?;
 
         // Stales
         snapshot.stale_global = stale_global_fields(&snapshot.global_daily, cutoff);

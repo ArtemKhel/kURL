@@ -91,7 +91,10 @@ impl EventConsumer {
 
         self.event_loop(&shutdown).await;
 
-        todo!("flush")
+        self.persistence
+            .flush()
+            .await
+            .context("snapshot flush before shutdown failed")
     }
 
     #[instrument(skip_all)]
@@ -113,7 +116,9 @@ impl EventConsumer {
                     return
                 }
                 _ = flush_ticker.tick() => {
-                    // TODO:
+                    if let Err(error) = self.persistence.flush().await{
+                        warn!(%error, "snapshot flush failed");
+                    }
                 }
                 result = self.read_stream(&opts) => {
                     match result {
@@ -210,7 +215,7 @@ impl EventConsumer {
             if shutdown.is_cancelled() {
                 break;
             };
-            let claimed = self.drain_pending_batch(shutdown).await?;
+            let claimed = self.drain_pending_batch().await?;
             if claimed == 0 {
                 break;
             }
@@ -221,7 +226,7 @@ impl EventConsumer {
     }
 
     #[instrument(skip_all)]
-    async fn drain_pending_batch(&self, shutdown: &CancellationToken) -> anyhow::Result<u64> {
+    async fn drain_pending_batch(&self) -> anyhow::Result<u64> {
         let mut conn = self.redis.get().await.context("Failed to get redis connection")?;
         let opts = StreamAutoClaimOptions::default().count(self.config.analytics.read_batch_size);
 

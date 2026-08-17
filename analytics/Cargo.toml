@@ -23,4 +23,5 @@ thiserror.workspace = true
 metrics.workspace = true
 
 itertools = "0.15.0"
+async-trait = "0.1.89"
 

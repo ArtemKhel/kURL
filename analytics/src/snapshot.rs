@@ -27,3 +27,9 @@ pub struct RehydrationData {
     pub global_daily: Vec<GlobalDailyStats>,
     pub link_daily: Vec<LinkDailyStats>,
 }
+
+pub fn calculate_merge_delta(existing: i64, incoming: i64) -> (i64, i64) {
+    let committed = existing.max(incoming);
+    let applied_delta = committed - existing;
+    (committed, applied_delta)
+}

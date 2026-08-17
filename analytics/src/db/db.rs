@@ -177,7 +177,7 @@ pub async fn get_link_daily_clicks_since(
     .map_err(DbError::from)
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl AnalyticsRepository for sqlx::PgPool {
     async fn get_link_totals(&self, short_code: &str) -> Result<(i64, Option<chrono::DateTime<chrono::Utc>>), DbError> {
         get_link_totals(self, short_code).await
