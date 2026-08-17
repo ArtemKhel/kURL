@@ -116,14 +116,14 @@ impl EventConsumer {
                     return
                 }
                 _ = flush_ticker.tick() => {
-                    if let Err(error) = self.persistence.flush().await{
+                    if let Err(error) = self.persistence.flush().await {
                         warn!(%error, "snapshot flush failed");
                     }
                 }
                 result = self.read_stream(&opts) => {
                     match result {
                         Ok(Some(stream_ids)) => {
-                            let Ok(mut conn) = self.redis.get().await else{
+                            let Ok(mut conn) = self.redis.get().await else {
                                 error!("Failed to get redis connection");
                                 continue
                             };
