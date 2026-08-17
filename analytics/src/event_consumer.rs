@@ -23,8 +23,10 @@ use crate::{
 const CONSUMER_GROUP: &str = "Analytics";
 const CONSUMER_NAME: &str = "worker-0";
 const ANALYTICS_WRITER_LOCK_ID: i64 = 1_234_567;
-const LOCK_RETRY_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+const LOCK_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 const XAUTOCLAIM_MIN_IDLE_MS: u64 = 0;
+
+const REDIS_ERROR_BACKOFF: Duration = Duration::from_millis(500);
 
 pub struct EventConsumer {
     redis: deadpool_redis::Pool,
@@ -75,6 +77,7 @@ impl EventConsumer {
         }
     }
 
+    #[instrument(skip_all)]
     async fn run_inner(&self, shutdown: &CancellationToken) -> anyhow::Result<()> {
         self.ensure_consumer_group()
             .await
@@ -86,13 +89,10 @@ impl EventConsumer {
             error!(%error, "failed to drain pending events");
         }
 
-        loop {
-            if shutdown.is_cancelled() {
-                return Ok(());
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-        todo!("run main event consumer loop");
+        self.event_loop(&shutdown).await?;
+
+        todo!("flush")
+
         // // self.spawn_persistence_task(&task_tracker, shutdown.child_token());
         //
         // // Current version of `deadpool-redis` doesn't allow to override `DEFAULT_RESPONSE_TIMEOUT`
@@ -139,6 +139,59 @@ impl EventConsumer {
         // }
     }
 
+    #[instrument(skip_all)]
+    async fn event_loop(&self, shutdown: &CancellationToken) -> anyhow::Result<()> {
+        let mut flush_ticker = tokio::time::interval(self.config.analytics.flush_interval);
+        flush_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        flush_ticker.tick().await;
+
+        let opts = StreamReadOptions::default()
+            .group(CONSUMER_GROUP, CONSUMER_NAME)
+            .count(self.config.analytics.read_batch_size)
+            .block(self.config.analytics.read_block.as_millis() as usize);
+
+        loop {
+            tokio::select! {
+                biased;
+                _ = shutdown.cancelled() => {
+                    info!("shutdown requested, stopping analytics consumer loop");
+                    return Ok(())
+                }
+                _ = flush_ticker.tick() => {
+                    error!("TODO");
+                }
+                result = self.read_stream(&opts) => {
+                    match result {
+                        Ok(Some(stream_ids)) => {
+                            let mut conn = self.redis.get().await?;
+                            for stream_id in stream_ids {
+                                self.process_entry(&mut conn, &stream_id).await;
+                            }
+                        }
+                        Ok(None) => {
+                            trace!("No new events in stream")
+                        }
+                        Err(error) => {
+                            error!(%error, "Error reading from Redis stream");
+                            tokio::time::sleep(REDIS_ERROR_BACKOFF).await;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[instrument(skip_all)]
+    async fn read_stream(&self, opts: &StreamReadOptions) -> anyhow::Result<Option<Vec<StreamId>>> {
+        let mut conn = self.redis.get().await?;
+        let stream_keys = [&self.config.redis.streams.events];
+        let stream_ids = [">"];
+        let reply = conn.xread_options(&stream_keys, &stream_ids, &opts).await?;
+
+        Ok(reply.map(|r| r.keys.into_iter().flat_map(|k| k.ids.into_iter()).collect()))
+    }
+
+    #[instrument(skip_all)]
     fn parse_click_event(entry: &StreamId) -> Option<ClickEvent> {
         let value = entry.map.get("event")?;
         match value {
@@ -157,17 +210,12 @@ impl EventConsumer {
         }
     }
 
-    // todo:
+    #[instrument(skip_all)]
     async fn process_entry(&self, conn: &mut deadpool_redis::Connection, entry: &StreamId) {
-        let Ok(mut conn) = self.redis.get().await else {
-            error!("failed to get redis connection");
-            return;
-        };
-
         match Self::parse_click_event(entry) {
             Some(event) => {
                 match RedisStats::record_click_event(
-                    &mut conn,
+                    conn,
                     &self.config.redis.streams.events,
                     CONSUMER_GROUP,
                     &entry.id,
@@ -185,13 +233,8 @@ impl EventConsumer {
                 }
             }
             None => {
-                match RedisStats::drop_click_event(
-                    &mut conn,
-                    &self.config.redis.streams.events,
-                    CONSUMER_GROUP,
-                    &entry.id,
-                )
-                .await
+                match RedisStats::drop_click_event(conn, &self.config.redis.streams.events, CONSUMER_GROUP, &entry.id)
+                    .await
                 {
                     Ok(()) => {}
                     Err(error) => {
@@ -202,6 +245,7 @@ impl EventConsumer {
         }
     }
 
+    #[instrument(skip_all)]
     async fn drain_pending(&self, shutdown: &CancellationToken) -> anyhow::Result<()> {
         let mut total_claimed = 0u64;
         loop {
@@ -218,8 +262,9 @@ impl EventConsumer {
         Ok(())
     }
 
+    #[instrument(skip_all)]
     async fn drain_pending_batch(&self, shutdown: &CancellationToken) -> anyhow::Result<u64> {
-        let mut conn = self.redis.get().await?;
+        let mut conn = self.redis.get().await.context("Failed to get redis connection")?;
         let opts = StreamAutoClaimOptions::default().count(self.config.analytics.read_batch_size);
 
         let reply = conn
