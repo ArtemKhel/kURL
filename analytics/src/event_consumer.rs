@@ -89,13 +89,13 @@ impl EventConsumer {
             error!(%error, "failed to drain pending events");
         }
 
-        self.event_loop(&shutdown).await?;
+        self.event_loop(&shutdown).await;
 
         todo!("flush")
     }
 
     #[instrument(skip_all)]
-    async fn event_loop(&self, shutdown: &CancellationToken) -> anyhow::Result<()> {
+    async fn event_loop(&self, shutdown: &CancellationToken) {
         let mut flush_ticker = tokio::time::interval(self.config.analytics.flush_interval);
         flush_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         flush_ticker.tick().await;
@@ -110,15 +110,18 @@ impl EventConsumer {
                 biased;
                 _ = shutdown.cancelled() => {
                     info!("shutdown requested, stopping analytics consumer loop");
-                    return Ok(())
+                    return
                 }
                 _ = flush_ticker.tick() => {
-                    error!("TODO");
+                    // TODO:
                 }
                 result = self.read_stream(&opts) => {
                     match result {
                         Ok(Some(stream_ids)) => {
-                            let mut conn = self.redis.get().await?;
+                            let Ok(mut conn) = self.redis.get().await else{
+                                error!("Failed to get redis connection");
+                                continue
+                            };
                             for stream_id in stream_ids {
                                 self.process_entry(&mut conn, &stream_id).await;
                             }
@@ -138,7 +141,7 @@ impl EventConsumer {
 
     #[instrument(skip_all)]
     async fn read_stream(&self, opts: &StreamReadOptions) -> anyhow::Result<Option<Vec<StreamId>>> {
-        let mut conn = self.redis.get().await?;
+        let mut conn = self.redis.get().await.context("Failed to get redis connection")?;
         let stream_keys = [&self.config.redis.streams.events];
         let stream_ids = [">"];
         let reply = conn.xread_options(&stream_keys, &stream_ids, &opts).await?;
