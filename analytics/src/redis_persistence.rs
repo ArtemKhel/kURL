@@ -126,16 +126,9 @@ impl Persistence {
             .await
             .context("failed to fetch last clicked at timestamps")?;
 
+        // Stales
         snapshot.stale_global = stale_global_fields(&snapshot.global_daily, cutoff);
         snapshot.stale_links = stale_link_fields(&snapshot.link_daily, cutoff);
-
-        // pub struct RedisSnapshot {
-        //     pub global_daily: HashMap<NaiveDate, i64>,
-        //     pub link_daily: HashMap<(String, NaiveDate), i64>,
-        //     pub last_clicked_at: HashMap<String, DateTime<Utc>>,
-        //     pub stale_global: HashSet<NaiveDate>,
-        //     pub stale_links: HashSet<(String, NaiveDate)>,
-        // }
 
         Ok(snapshot)
     }
