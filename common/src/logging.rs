@@ -114,8 +114,6 @@ pub fn init_tracing(config: &LoggingConfig, service_name: &'static str) -> OtelG
 
     let fmt_layer = tracing_subscriber::fmt::layer().pretty();
 
-    init_metrics_exporter(9100);
-
     if !config.enabled {
         tracing_subscriber::registry().with(filter).with(fmt_layer).init();
 
@@ -125,6 +123,8 @@ pub fn init_tracing(config: &LoggingConfig, service_name: &'static str) -> OtelG
             logger_provider: None,
         };
     }
+
+    init_metrics_exporter(9100);
 
     let endpoint = get_endpoint(config);
 
