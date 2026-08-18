@@ -117,7 +117,10 @@ impl<SR: SnapshotRepository> Persistence<SR> {
                 snapshot.link_daily.insert((short_code.to_string(), date), count);
             }
 
-            metrics::counter!("analytics.malformed_redis_fields").increment(malformed.len() as u64)
+            if !malformed.is_empty() {
+                metrics::counter!("analytics.malformed_redis_fields").increment(malformed.len() as u64);
+                warn!(?malformed, "malformed fields in redis");
+            }
         }
 
         // Global daily stats
@@ -126,7 +129,11 @@ impl<SR: SnapshotRepository> Persistence<SR> {
         let (global_parsed, global_malformed) = parse_daily_counts(global_fields);
 
         snapshot.global_daily = global_parsed;
-        metrics::counter!("analytics.malformed_redis_fields").increment(global_malformed.len() as u64);
+
+        if !global_malformed.is_empty() {
+            metrics::counter!("analytics.malformed_redis_fields").increment(global_malformed.len() as u64);
+            warn!(?global_malformed, "malformed fields in redis");
+        }
 
         // Last clicked ats
         let link_codes: Vec<String> = snapshot
