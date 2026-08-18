@@ -4,7 +4,7 @@ use anyhow::Context;
 use chrono::{Duration, NaiveDate, Utc};
 use common::{db_utils::DbError, redis_keys::RedisKeys};
 use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     db::SnapshotRepository,
@@ -182,20 +182,58 @@ impl<SR: SnapshotRepository> Persistence<SR> {
 
         for date in &snapshot.stale_global {
             if !global_reconciled.contains(&date) {
+                debug!(%date, "skipping stale global cleanup: reconciliation failed");
                 continue;
             }
             let committed_count = outcome.committed_global.get(date).copied().unwrap_or(0);
             let date_str = date.to_string();
             let expected = committed_count.to_string();
             match RedisStats::compare_and_delete(&mut conn, &global_key, &date_str, &expected).await {
-                Ok(_) => {}
+                Ok(true) => debug!(%date, "deleted stale global day-bucket"),
+                Ok(false) => debug!(%date, "stale global day-bucket changed, retained for next snapshot"),
                 Err(error) => {
                     warn!(%error, %date, "failed to cleanup stale global day-bucket after merge");
                 }
             }
         }
 
-        // todo!("per-link")
+        let mut links_reconciled = HashSet::new();
+
+        for ((code, date), count) in &outcome.committed_links {
+            let link_key = RedisKeys::link_stats_key(code);
+            let date_str = date.to_string();
+            match RedisStats::hmax(&mut conn, &link_key, &date_str, *count).await {
+                Ok(_) => {
+                    links_reconciled.insert((code, *date));
+                }
+                Err(error) => {
+                    warn!(%error, code, %date, "failed to update link stats key after merge");
+                }
+            }
+        }
+
+        for (code, date) in &snapshot.stale_links {
+            if !links_reconciled.contains(&(code, *date)) {
+                debug!(%code, %date, "skipping stale link cleanup: reconciliation failed");
+                continue;
+            }
+            let link_key = RedisKeys::link_stats_key(code);
+            let date_str = date.to_string();
+            let expected_committed_count = outcome
+                .committed_links
+                .get(&(code.clone(), *date))
+                .copied()
+                .unwrap_or(0)
+                .to_string();
+            match RedisStats::compare_and_delete(&mut conn, &link_key, &date_str, &expected_committed_count).await {
+                Ok(true) => debug!(%code, %date, "deleted stale link day-bucket"),
+                Ok(false) => debug!(%code, %date, "stale link day-bucket changed, retained for next snapshot"),
+                Err(error) => {
+                    warn!(%error, code, %date, "failed to cleanup stale link day-bucket after merge");
+                }
+            }
+        }
+
         Ok(())
     }
 }
