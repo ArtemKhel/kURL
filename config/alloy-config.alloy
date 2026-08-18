@@ -59,6 +59,16 @@ prometheus.scrape "rust_services" {
   forward_to      = [prometheus.remote_write.default.receiver]
 }
 
+prometheus.scrape "local_rust_services" {
+  targets = [
+    {"__address__" = "host.docker.internal:9100", "service" = "gateway"},
+    {"__address__" = "host.docker.internal:9101", "service" = "core"},
+    {"__address__" = "host.docker.internal:9102", "service" = "analytics"},
+  ]
+  scrape_interval = "10s"
+  forward_to      = [prometheus.remote_write.default.receiver]
+}
+
 // Forward OTLP metrics to Prometheus via Remote Write
 otelcol.exporter.prometheus "default" {
   forward_to = [prometheus.remote_write.default.receiver]

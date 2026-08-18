@@ -124,7 +124,10 @@ pub fn init_tracing(config: &LoggingConfig, service_name: &'static str) -> OtelG
         };
     }
 
-    init_metrics_exporter(9100);
+    let metrics_port = std::env::var("METRICS_PORT")
+        .map(|value| value.parse().expect("METRICS_PORT must be a valid port"))
+        .unwrap_or(9100);
+    init_metrics_exporter(metrics_port);
 
     let endpoint = get_endpoint(config);
 

@@ -1,0 +1,13 @@
+layout {
+    pane split_direction="vertical" {
+        pane name="gateway" command="env" {
+            args "METRICS_PORT=9100" "./target/debug/gateway"
+        }
+        pane name="core" command="env" {
+            args "METRICS_PORT=9101" "./target/debug/core"
+        }
+        pane name="analytics" command="env" {
+            args "METRICS_PORT=9102" "./target/debug/analytics"
+        }
+    }
+}

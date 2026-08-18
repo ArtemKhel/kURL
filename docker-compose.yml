@@ -113,6 +113,8 @@ services:
       - "127.0.0.1:12345:12345"
       - "127.0.0.1:4317:4317"
       - "127.0.0.1:4318:4318"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./config/alloy-config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro  # read-only, used only for container log discovery
