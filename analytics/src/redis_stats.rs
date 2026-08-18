@@ -14,14 +14,30 @@ pub struct RedisStats {}
 ///   - field
 ///   - value
 ///
-/// Returns: 1 if the value was updated, 0 if not
+/// Returns: `true` if the value was updated, `false` if not
 const HMAX_SCRIPT: &str = r#"
 local current = redis.call("HGET", KEYS[1], ARGV[1])
 if not current or tonumber(ARGV[2]) > tonumber(current) then
     redis.call("HSET", KEYS[1], ARGV[1], ARGV[2])
-    return 1
+    return true
 end
-return 0
+return false
+"#;
+
+/// Atomic compare-and-delete: if the current value matches the expected value, set it to a new value
+/// * KEYS: hash_key
+/// * ARGV:
+///  - field
+///  - expected_value
+///
+/// Returns: `true` if the value was updated, `false` if not
+const COMPARE_AND_DELETE_SCRIPT: &str = r#"
+local current = redis.call("HGET", KEYS[1], ARGV[1])
+if current == argv[2] then
+    redis.call("HSET", KEYS[1], ARGV[1], ARGV[2])
+    return true
+end
+return false
 "#;
 
 /// Atomic click event processing script
@@ -64,13 +80,26 @@ impl RedisStats {
         field: &str,
         value: i64,
     ) -> RedisResult<bool> {
-        let result: i64 = redis::Script::new(HMAX_SCRIPT)
+        redis::Script::new(HMAX_SCRIPT)
             .key(hash_key)
             .arg(field)
             .arg(value)
             .invoke_async(conn)
-            .await?;
-        Ok(result == 1)
+            .await
+    }
+
+    pub async fn compare_and_delete(
+        conn: &mut deadpool_redis::Connection,
+        hash_key: &str,
+        field: &str,
+        expected_value: &str,
+    ) -> RedisResult<bool> {
+        redis::Script::new(COMPARE_AND_DELETE_SCRIPT)
+            .key(hash_key)
+            .arg(field)
+            .arg(expected_value)
+            .invoke_async(conn)
+            .await?
     }
 
     pub async fn record_click_event(

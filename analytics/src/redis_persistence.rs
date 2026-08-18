@@ -6,7 +6,11 @@ use common::{db_utils::DbError, redis_keys::RedisKeys};
 use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
 use tracing::{error, info, instrument, warn};
 
-use crate::{db::SnapshotRepository, redis_stats::RedisStats, snapshot::RedisSnapshot};
+use crate::{
+    db::SnapshotRepository,
+    redis_stats::RedisStats,
+    snapshot::{MergeOutcome, RedisSnapshot},
+};
 
 // todo: from config
 const ROLLING_WINDOW_DAYS: i64 = 7;
@@ -67,15 +71,17 @@ impl<SR: SnapshotRepository> Persistence<SR> {
             return Ok(());
         }
 
-        let _res = match self.db.merge_snapshot(&snapshot).await {
-            Ok(outcome) => {
-                dbg!(outcome)
-            }
+        let outcome = match self.db.merge_snapshot(&snapshot).await {
+            Ok(outcome) => outcome,
             Err(error) => {
                 metrics::counter!("analytics.snapshot_failures_total").increment(1);
                 anyhow::bail!(error);
             }
         };
+
+        if let Err(error) = self.reconcile_and_cleanup(&snapshot, &outcome).await {
+            warn!(%error, "post-commit Redis reconciliation/cleanup failed, will retry next snapshot");
+        }
 
         Ok(())
     }
@@ -153,6 +159,44 @@ impl<SR: SnapshotRepository> Persistence<SR> {
         snapshot.stale_links = stale_link_fields(&snapshot.link_daily, cutoff);
 
         Ok(snapshot)
+    }
+
+    #[instrument(skip_all)]
+    async fn reconcile_and_cleanup(&self, snapshot: &RedisSnapshot, outcome: &MergeOutcome) -> anyhow::Result<()> {
+        let mut conn = self.redis.get().await.context("failed to get redis connection")?;
+
+        let global_key = RedisKeys::global_stats_key();
+        let mut global_reconciled = HashSet::new();
+
+        for (date, count) in &outcome.committed_global {
+            let date_str = date.to_string();
+            match RedisStats::hmax(&mut conn, &global_key, &date_str, *count).await {
+                Ok(_) => {
+                    global_reconciled.insert(date);
+                }
+                Err(error) => {
+                    warn!(%error, %date, "failed to update global day-bucket after merge");
+                }
+            }
+        }
+
+        for date in &snapshot.stale_global {
+            if !global_reconciled.contains(&date) {
+                continue;
+            }
+            let committed_count = outcome.committed_global.get(date).copied().unwrap_or(0);
+            let date_str = date.to_string();
+            let expected = committed_count.to_string();
+            match RedisStats::compare_and_delete(&mut conn, &global_key, &date_str, &expected).await {
+                Ok(_) => {}
+                Err(error) => {
+                    warn!(%error, %date, "failed to cleanup stale global day-bucket after merge");
+                }
+            }
+        }
+
+        // todo!("per-link")
+        Ok(())
     }
 }
 
