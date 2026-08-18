@@ -14,13 +14,13 @@ const STALE_GRACE_DAYS: i64 = 1;
 const SCAN_BATCH_SIZE: usize = 100;
 
 // TODO: metrics
-pub struct Persistence {
-    db: sqlx::PgPool,
+pub struct Persistence<SR: SnapshotRepository> {
+    db: SR,
     redis: deadpool_redis::Pool,
 }
 
-impl Persistence {
-    pub fn new(db: sqlx::PgPool, redis: deadpool_redis::Pool) -> Self { Self { db, redis } }
+impl<SR: SnapshotRepository> Persistence<SR> {
+    pub fn new(db: SR, redis: deadpool_redis::Pool) -> Self { Self { db, redis } }
 
     #[instrument(skip_all)]
     pub async fn rehydrate(&self) -> anyhow::Result<()> {

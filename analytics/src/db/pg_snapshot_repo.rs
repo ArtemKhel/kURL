@@ -10,11 +10,19 @@ use crate::{
     snapshot::{MergeOutcome, RedisSnapshot, RehydrationData},
 };
 
+#[derive(Debug)]
+pub struct SnapshotRepoPg {
+    pool: sqlx::PgPool,
+}
+impl SnapshotRepoPg {
+    pub fn new(pool: sqlx::PgPool) -> Self { Self { pool } }
+}
+
 #[async_trait::async_trait]
-impl SnapshotRepository for sqlx::PgPool {
+impl SnapshotRepository for SnapshotRepoPg {
     async fn get_daily_clicks_since(&self, since: NaiveDate) -> Result<RehydrationData, DbError> {
-        let global_daily = get_global_daily_clicks_since(self, since).await?;
-        let link_daily = get_link_daily_clicks_since(self, since).await?;
+        let global_daily = get_global_daily_clicks_since(&self.pool, since).await?;
+        let link_daily = get_link_daily_clicks_since(&self.pool, since).await?;
         Ok(RehydrationData {
             global_daily,
             link_daily,
@@ -28,7 +36,7 @@ impl SnapshotRepository for sqlx::PgPool {
             return Ok(outcome);
         }
 
-        let mut tx = self.begin().await.map_err(DbError::from)?;
+        let mut tx = self.pool.begin().await.map_err(DbError::from)?;
 
         if !snapshot.global_daily.is_empty() {
             let dates: Vec<NaiveDate> = snapshot.global_daily.keys().copied().collect();

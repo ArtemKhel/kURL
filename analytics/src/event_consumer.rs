@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::{
+    db::pg_snapshot_repo::SnapshotRepoPg,
     redis_persistence::Persistence,
     redis_stats::{EventOutcome, RedisStats},
 };
@@ -31,13 +32,14 @@ const REDIS_ERROR_BACKOFF: Duration = Duration::from_millis(500);
 pub struct EventConsumer {
     redis: deadpool_redis::Pool,
     db: sqlx::PgPool,
-    persistence: Persistence,
+    persistence: Persistence<SnapshotRepoPg>,
     config: crate::Config,
 }
 
 impl EventConsumer {
     pub fn new(redis: deadpool_redis::Pool, db: sqlx::PgPool, config: crate::Config) -> Self {
-        let persistence = Persistence::new(db.clone(), redis.clone());
+        let snap_repo = SnapshotRepoPg::new(db.clone());
+        let persistence = Persistence::new(snap_repo, redis.clone());
         Self {
             redis,
             db,
