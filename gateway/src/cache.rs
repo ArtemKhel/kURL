@@ -10,13 +10,13 @@ pub async fn redis_query(state: &SharedState, short_code: String) -> Option<Stri
         .redis
         .get()
         .await
-        .map_err(|error| error!(%error, "Failed to get Redis connection"))
+        .inspect_err(|error| error!(%error, "Failed to get Redis connection"))
         .ok()?;
 
     redis_conn
         .get(RedisKeys::link_cache_key(&short_code))
         .await
-        .map_err(|error| error!(%error, "Redis query failed"))
+        .inspect_err(|error| error!(%error, "Redis query failed"))
         .ok()?
 }
 
