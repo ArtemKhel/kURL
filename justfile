@@ -1,5 +1,5 @@
 default:
-    cargo build
+    cargo build --workspace --bins
 
 # Docker
 up:
@@ -8,12 +8,16 @@ up-build:
     docker compose up --build -d
 down:
     docker compose down
-db-redis:
-    docker compose up -d --wait db redis
+db:
+    docker compose up -d --wait db
+db-redis: db
+    docker compose up -d --wait redis
+
+migrate: db
+    cargo run -p migrator
 
 # Local dev
-dev: db-redis
-    cargo build --workspace --bins
+dev: db-redis migrate default
     kitty --directory "{{justfile_directory()}}" --title "Dev" "{{justfile_directory()}}/scripts/dev-session"
 
 # Utils

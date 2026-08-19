@@ -2,6 +2,7 @@ mod loader;
 mod types;
 mod validation;
 
+pub use loader::load_database;
 pub use types::*;
 pub use validation::Validate;
 

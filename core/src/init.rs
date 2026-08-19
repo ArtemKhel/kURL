@@ -10,10 +10,6 @@ pub async fn init(config: &crate::Config) -> Result<(sqlx::PgPool, deadpool_redi
             let db_pool = common::db_utils::connect(config.database.to_string().as_str())
                 .await
                 .context("Failed to connect to database")?;
-            crate::MIGRATOR
-                .run(&db_pool)
-                .await
-                .context("Failed to apply migrations")?;
             info!("Connected to database: {}", config.database.to_string());
             Ok(db_pool)
         },

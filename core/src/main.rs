@@ -3,7 +3,6 @@ use std::{net::SocketAddr, sync::Arc};
 use anyhow::Context;
 use axum::routing::get;
 use proto::core::link_service_server::LinkServiceServer;
-use sqlx::migrate::Migrator;
 use tokio::{net::TcpListener, sync::mpsc::UnboundedSender};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tonic::service::Routes;
@@ -26,9 +25,6 @@ pub struct AppState {
     pub db_pool: Arc<dyn db::LinkRepository>,
     pub redis_tx: UnboundedSender<cache::CacheOp>,
 }
-
-//noinspection RsCompileErrorMacro
-static MIGRATOR: Migrator = sqlx::migrate!("../migrations/");
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

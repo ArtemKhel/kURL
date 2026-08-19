@@ -78,6 +78,23 @@ fn environment_overrides_file_and_handles_underscored_fields() {
 }
 
 #[test]
+fn database_loader_ignores_unrelated_configuration() {
+    let database = loader::load_database_toml(
+        r#"
+            [database]
+            host = "file-db"
+
+            [analytics]
+            read_batch_size = 0
+        "#,
+        environment(&[("APP_DATABASE__HOST", "env-db")]),
+    )
+    .unwrap();
+
+    assert_eq!(database.host, "env-db");
+}
+
+#[test]
 fn explicit_file_is_required_but_fallback_is_optional() {
     let missing = std::env::temp_dir().join(format!("kurlyk-config-missing-{}-{}.toml", std::process::id(), line!()));
 

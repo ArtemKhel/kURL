@@ -43,8 +43,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
         --bin gateway \
         --bin core \
         --bin analytics \
+        --bin migrator \
     && mkdir -p /app/bin \
-    && cp target/debug/gateway target/debug/core target/debug/analytics /app/bin/
+    && cp target/debug/gateway target/debug/core target/debug/analytics target/debug/migrator /app/bin/
 
 
 FROM gcr.io/distroless/cc-debian13 AS gateway
@@ -66,3 +67,10 @@ COPY --from=builder /app/bin/analytics /usr/local/bin/analytics
 USER nonroot:nonroot
 WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/analytics"]
+
+
+FROM gcr.io/distroless/cc-debian13 AS migrator
+COPY --from=builder /app/bin/migrator /usr/local/bin/migrator
+USER nonroot:nonroot
+WORKDIR /usr/local/bin
+ENTRYPOINT ["/usr/local/bin/migrator"]

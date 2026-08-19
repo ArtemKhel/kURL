@@ -61,6 +61,7 @@ pub fn is_unique_violation(err: &sqlx::Error) -> bool {
     )
 }
 
+#[allow(dead_code)]
 fn log_db_error(err: &DbError, context: &str) {
     if err.is_transient() {
         warn!(error = %err, context, "transient database error, will retry next snapshot");

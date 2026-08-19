@@ -3,7 +3,7 @@ use std::{env, path::Path};
 use config::{Config, ConfigError, Environment, File, FileFormat, Source};
 use tracing::info;
 
-use super::{AppConfig, Validate};
+use super::{AppConfig, DatabaseConfig, Validate};
 
 const CONFIG_FILE_ENV: &str = "KURLYK_CONFIG_FILE";
 const DEFAULT_CONFIG_FILE: &str = "./config/config.toml";
@@ -24,6 +24,12 @@ impl AppConfig {
             );
         })
     }
+}
+
+pub fn load_database() -> Result<DatabaseConfig, ConfigError> {
+    let explicit_path = env::var_os(CONFIG_FILE_ENV);
+    let file = config_file(explicit_path.as_deref().map(Path::new), Path::new(DEFAULT_CONFIG_FILE))?;
+    load_database_sources(file, app_environment())
 }
 
 fn app_environment() -> Environment {
@@ -55,9 +61,33 @@ where S: Source + Send + Sync + 'static {
     Ok(config)
 }
 
+fn load_database_sources<S>(file: S, env: Environment) -> Result<DatabaseConfig, ConfigError>
+where S: Source + Send + Sync + 'static {
+    #[derive(serde::Deserialize)]
+    struct DatabaseOnly {
+        #[serde(default)]
+        database: DatabaseConfig,
+    }
+
+    let database = Config::builder()
+        .add_source(file)
+        .add_source(env)
+        .build()?
+        .try_deserialize::<DatabaseOnly>()?
+        .database;
+
+    database.validate()?;
+    Ok(database)
+}
+
 #[cfg(test)]
 pub(super) fn load_toml(contents: &str, env: Environment) -> Result<AppConfig, ConfigError> {
     load_sources(File::from_str(contents, FileFormat::Toml), env)
+}
+
+#[cfg(test)]
+pub(super) fn load_database_toml(contents: &str, env: Environment) -> Result<DatabaseConfig, ConfigError> {
+    load_database_sources(File::from_str(contents, FileFormat::Toml), env)
 }
 
 #[cfg(test)]
