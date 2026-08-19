@@ -1,5 +1,4 @@
 [redis]
-host = "localhost"
 #host = "redis"
 port = 6379
 cache_ttl_secs = 60
@@ -8,7 +7,6 @@ cache_ttl_secs = 60
 events = "Events"
 
 [database]
-host = "localhost"
 #host = "db"
 port = 5432
 user = "postgres"
@@ -16,17 +14,14 @@ password = "postgres"
 db_name = "kurlyk"
 
 [gateway]
-host = "localhost"
 #host = "gateway"
 port = 3000
 
 [core]
-host = "localhost"
 #host = "core"
 port = 3001
 
 [analytics]
-host = "localhost"
 #host = "analytics"
 port = 3002
 read_batch_size = 100

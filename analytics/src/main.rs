@@ -11,7 +11,7 @@ use std::sync::Arc;
 use common::config::AnalyticsConfig;
 use proto::analytics::analytics_server::AnalyticsServer;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
-use tracing::{error, info};
+use tracing::info;
 
 use crate::{event_consumer::EventConsumer, grpc::AnalyticsService};
 
@@ -22,7 +22,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = common::config::load::<AnalyticsConfig>();
     let otel_guard = common::logging::init_tracing(&config.logging, "analytics");
     info!(?config.analytics, "analytics configuration loaded");
-    check_config(&config)?;
 
     let task_tracker = TaskTracker::new();
     let shutdown = CancellationToken::new();
@@ -56,21 +55,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         drop(otel_guard);
     })
     .await;
-    Ok(())
-}
-
-fn check_config(config: &Config) -> anyhow::Result<()> {
-    if config.analytics.read_batch_size == 0 {
-        error!("analytics.read_batch_size must be greater than zero");
-        return Err(anyhow::anyhow!("Invalid analytics.read_batch_size"));
-    }
-    if !(1..=500).contains(&config.analytics.read_block.as_millis()) {
-        error!("analytics.read_block_millis must be between 1 and 500");
-        return Err(anyhow::anyhow!("Invalid analytics.read_block_millis"));
-    };
-    if config.analytics.flush_interval.is_zero() {
-        error!("analytics.flush_interval must be greater than zero");
-        return Err(anyhow::anyhow!("Invalid analytics.flush_interval"));
-    }
     Ok(())
 }
