@@ -2,13 +2,14 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::Context;
 use chrono::{Duration, NaiveDate, Utc};
-use common::{db_utils::DbError, redis_keys::RedisKeys};
+use common::redis_keys::RedisKeys;
 use redis::{AsyncIter, AsyncTypedCommands, ScanOptions};
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     db::SnapshotRepository,
     redis_stats::RedisStats,
+    snapshot,
     snapshot::{MergeOutcome, RedisSnapshot},
 };
 
@@ -26,6 +27,7 @@ pub struct Persistence<SR: SnapshotRepository> {
 impl<SR: SnapshotRepository> Persistence<SR> {
     pub fn new(db: SR, redis: deadpool_redis::Pool) -> Self { Self { db, redis } }
 
+    /// Restores Redis state from database
     #[instrument(skip_all)]
     pub async fn rehydrate(&self) -> anyhow::Result<()> {
         let window_start = rolling_window_start();
@@ -62,6 +64,8 @@ impl<SR: SnapshotRepository> Persistence<SR> {
         Ok(())
     }
 
+    /// Captures a snapshot of Redis state and merges it into the database, then reconciles and cleans up stale Redis
+    /// keys.
     #[instrument(skip_all)]
     pub async fn flush(&self) -> anyhow::Result<()> {
         let snapshot = self.capture_snapshot().await?;
@@ -117,7 +121,7 @@ impl<SR: SnapshotRepository> Persistence<SR> {
             };
 
             let fields = cmd_conn.hgetall(&key).await?;
-            let (parsed, malformed) = parse_daily_counts(fields);
+            let (parsed, malformed) = snapshot::parse_daily_counts(fields);
 
             for (date, count) in parsed {
                 snapshot.link_daily.insert((short_code.to_string(), date), count);
@@ -132,7 +136,7 @@ impl<SR: SnapshotRepository> Persistence<SR> {
         // Global daily stats
         let global_key = RedisKeys::global_stats_key();
         let global_fields: HashMap<String, String> = cmd_conn.hgetall(&global_key).await?;
-        let (global_parsed, global_malformed) = parse_daily_counts(global_fields);
+        let (global_parsed, global_malformed) = snapshot::parse_daily_counts(global_fields);
 
         snapshot.global_daily = global_parsed;
 
@@ -155,8 +159,8 @@ impl<SR: SnapshotRepository> Persistence<SR> {
             .context("failed to fetch 'last_clicked_at' timestamps")?;
 
         // Stales
-        snapshot.stale_global = stale_global_fields(&snapshot.global_daily, cutoff);
-        snapshot.stale_links = stale_link_fields(&snapshot.link_daily, cutoff);
+        snapshot.stale_global = snapshot::stale_global_fields(&snapshot.global_daily, cutoff);
+        snapshot.stale_links = snapshot::stale_link_fields(&snapshot.link_daily, cutoff);
 
         Ok(snapshot)
     }
@@ -238,67 +242,6 @@ impl<SR: SnapshotRepository> Persistence<SR> {
     }
 }
 
-// todo: move?
-#[derive(Debug)]
-pub struct MalformedField {
-    pub key: String,
-    pub value: String,
-    pub reason: &'static str,
-}
-
 fn rolling_window_start() -> NaiveDate { (Utc::now() - Duration::days(ROLLING_WINDOW_DAYS)).date_naive() }
 
 fn stale_cutoff() -> NaiveDate { (Utc::now() - Duration::days(ROLLING_WINDOW_DAYS + STALE_GRACE_DAYS)).date_naive() }
-
-pub fn stale_global_fields(daily: &HashMap<NaiveDate, i64>, cutoff: NaiveDate) -> HashSet<NaiveDate> {
-    daily.keys().filter(|&d| *d < cutoff).copied().collect()
-}
-
-pub fn stale_link_fields(daily: &HashMap<(String, NaiveDate), i64>, cutoff: NaiveDate) -> HashSet<(String, NaiveDate)> {
-    daily.keys().filter(|(_, d)| *d < cutoff).cloned().collect()
-}
-
-fn parse_daily_counts(fields: HashMap<String, String>) -> (HashMap<NaiveDate, i64>, Vec<MalformedField>) {
-    let mut valid = HashMap::with_capacity(fields.len());
-    let mut malformed = Vec::new();
-
-    for (date_str, count_str) in fields {
-        let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") else {
-            malformed.push(MalformedField {
-                key: date_str,
-                value: count_str,
-                reason: "invalid date format",
-            });
-            continue;
-        };
-        let clicks = match count_str.parse::<i64>() {
-            Ok(c) if c >= 0 => c,
-            Ok(_) => {
-                malformed.push(MalformedField {
-                    key: date_str,
-                    value: count_str,
-                    reason: "negative count",
-                });
-                continue;
-            }
-            Err(_) => {
-                malformed.push(MalformedField {
-                    key: date_str,
-                    value: count_str,
-                    reason: "invalid count",
-                });
-                continue;
-            }
-        };
-        valid.insert(date, clicks);
-    }
-    (valid, malformed)
-}
-
-fn log_db_error(err: &DbError, context: &str) {
-    if err.is_transient() {
-        warn!(error = %err, context, "transient database error, will retry next snapshot");
-    } else {
-        error!(error = %err, context, "database error");
-    }
-}

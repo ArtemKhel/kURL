@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use sqlx::postgres::PgPoolOptions;
+use tracing::{error, warn};
 
 /// Postgres only
 pub async fn connect(url: &str) -> Result<sqlx::PgPool, sqlx::Error> {
@@ -58,4 +59,12 @@ pub fn is_unique_violation(err: &sqlx::Error) -> bool {
         sqlx::Error::Database(db_err)
             if db_err.kind() == sqlx::error::ErrorKind::UniqueViolation
     )
+}
+
+fn log_db_error(err: &DbError, context: &str) {
+    if err.is_transient() {
+        warn!(error = %err, context, "transient database error, will retry next snapshot");
+    } else {
+        error!(error = %err, context, "database error");
+    }
 }
