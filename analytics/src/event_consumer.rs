@@ -87,9 +87,9 @@ impl EventConsumer {
 
         self.persistence.rehydrate().await.context("failed to rehydrate")?;
 
-        if let Err(error) = self.drain_pending(shutdown).await {
-            error!(%error, "failed to drain pending events");
-        }
+        self.drain_pending(shutdown)
+            .await
+            .context("failed to drain pending events")?;
 
         self.event_loop(shutdown).await;
 
@@ -118,6 +118,9 @@ impl EventConsumer {
                     return
                 }
                 _ = flush_ticker.tick() => {
+                    if let Err(error) = self.drain_pending(shutdown).await {
+                        warn!(%error, "failed to drain pending events");
+                    }
                     if let Err(error) = self.persistence.flush().await {
                         warn!(%error, "snapshot flush failed");
                     }
