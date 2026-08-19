@@ -3,14 +3,10 @@ use std::{
     time::Duration,
 };
 
-use config::{Config, ConfigError, File};
 use serde::{Deserialize, Deserializer};
-use tracing::info;
-
-//  SHARED CONFIGS
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct RedisConfig {
     pub host: String,
     pub port: u16,
@@ -19,14 +15,33 @@ pub struct RedisConfig {
     pub streams: Streams,
 }
 
+impl Default for RedisConfig {
+    fn default() -> Self {
+        Self {
+            host: "localhost".into(),
+            port: 6379,
+            cache_ttl: Duration::from_secs(300),
+            streams: Streams::default(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct Streams {
     pub events: String,
 }
 
+impl Default for Streams {
+    fn default() -> Self {
+        Self {
+            events: "Events".into(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct DatabaseConfig {
     pub host: String,
     pub port: u16,
@@ -35,16 +50,35 @@ pub struct DatabaseConfig {
     pub db_name: String,
 }
 
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            host: "localhost".into(),
+            port: 5432,
+            user: "postgres".into(),
+            password: "postgres".into(),
+            db_name: "kurlyk".into(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct LoggingConfig {
     pub level: String,
-    #[serde(default)]
     pub enabled: bool,
     pub otlp_endpoint: Option<String>,
 }
 
-//  SERVICE ADDRESS
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            level: "info".into(),
+            enabled: false,
+            otlp_endpoint: Some("http://alloy:4317".into()),
+        }
+    }
+}
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
@@ -60,24 +94,40 @@ pub struct RedisAddress {
     pub port: u16,
 }
 
-//  SERVICE-SPECIFIC CONFIGS
-
 #[derive(Debug, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct GatewayServiceConfig {
     pub host: String,
     pub port: u16,
 }
 
+impl Default for GatewayServiceConfig {
+    fn default() -> Self {
+        Self {
+            host: "localhost".into(),
+            port: 3000,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct CoreServiceConfig {
     pub host: String,
     pub port: u16,
 }
 
+impl Default for CoreServiceConfig {
+    fn default() -> Self {
+        Self {
+            host: "localhost".into(),
+            port: 3001,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct AnalyticsServiceConfig {
     pub host: String,
     pub port: u16,
@@ -88,9 +138,20 @@ pub struct AnalyticsServiceConfig {
     pub flush_interval: Duration,
 }
 
-//  MASTER CONFIG
+impl Default for AnalyticsServiceConfig {
+    fn default() -> Self {
+        Self {
+            host: "localhost".into(),
+            port: 3002,
+            read_batch_size: 100,
+            read_block: Duration::from_millis(250),
+            flush_interval: Duration::from_secs(60),
+        }
+    }
+}
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
+#[serde(default, deny_unknown_fields)]
 pub struct AppConfig {
     pub redis: RedisConfig,
     pub database: DatabaseConfig,
@@ -99,8 +160,6 @@ pub struct AppConfig {
     pub core: CoreServiceConfig,
     pub analytics: AnalyticsServiceConfig,
 }
-
-//  SERVICE-SPECIFIC CONFIGS (what each service gets)
 
 #[derive(Debug, Clone)]
 pub struct GatewayConfig {
@@ -125,45 +184,6 @@ pub struct AnalyticsConfig {
     pub redis: RedisConfig,
     pub database: DatabaseConfig,
     pub logging: LoggingConfig,
-}
-
-impl AppConfig {
-    pub fn load() -> Result<Self, ConfigError> {
-        let config = Config::builder()
-            // Priority 1 (lowest): Defaults
-            .set_default("redis.host", "localhost")?
-            .set_default("redis.port", 6379)?
-            .set_default("redis.cache_ttl_secs", 300)?
-            .set_default("database.host", "localhost")?
-            .set_default("database.port", 5432)?
-            .set_default("database.user", "postgres")?
-            .set_default("database.password", "postgres")?
-            .set_default("database.db_name", "kurlyk")?
-            .set_default("logging.level", "info")?
-            .set_default("logging.enabled", false)?
-            .set_default("logging.otlp_endpoint", "http://alloy:4317")?
-            .set_default("gateway.host", "localhost")?
-            .set_default("gateway.port", 3000)?
-            .set_default("core.host", "localhost")?
-            .set_default("core.port", 3001)?
-            .set_default("analytics.host", "localhost")?
-            .set_default("analytics.port", 3002)?
-            .set_default("analytics.read_batch_size", 100)?
-            .set_default("analytics.read_block_millis", 250)?
-            .set_default("analytics.flush_interval_secs", 60)?
-            // Priority 2: TOML file (if it exists)
-            .add_source(File::with_name("./config/config.toml").required(false))
-            // Priority 3 (highest): Environment variables
-            .add_source(config::Environment::with_prefix("APP").try_parsing(true).separator("_"))
-            .build()?;
-
-        config.try_deserialize().inspect(|_| info!("config loaded"))
-    }
-}
-
-pub fn load<T>() -> T
-where T: From<AppConfig> {
-    AppConfig::load().map(T::from).expect("Failed to load config")
 }
 
 fn duration_from_secs<'de, D>(deserializer: D) -> Result<Duration, D::Error>
@@ -199,7 +219,6 @@ impl Display for ServiceAddress {
 }
 
 impl_display!(RedisConfig, "redis://{}:{}", host, port);
-// impl_display!(GatewayServiceConfig, "{}:{}", host, port);
 impl_display!(CoreServiceConfig, "grpc://{}:{}", host, port);
 impl_display!(AnalyticsServiceConfig, "grpc://{}:{}", host, port);
 impl_display!(
@@ -214,7 +233,7 @@ impl_display!(
 
 impl From<AppConfig> for GatewayConfig {
     fn from(value: AppConfig) -> Self {
-        GatewayConfig {
+        Self {
             gateway: value.gateway,
             redis: value.redis,
             core: ServiceAddress {
@@ -224,16 +243,17 @@ impl From<AppConfig> for GatewayConfig {
             },
             analytics: ServiceAddress {
                 scheme: Some("grpc".into()),
-                host: value.analytics.host.clone(),
+                host: value.analytics.host,
                 port: value.analytics.port,
             },
             logging: value.logging,
         }
     }
 }
+
 impl From<AppConfig> for CoreConfig {
     fn from(value: AppConfig) -> Self {
-        CoreConfig {
+        Self {
             core: value.core,
             redis: value.redis,
             database: value.database,
@@ -244,7 +264,7 @@ impl From<AppConfig> for CoreConfig {
 
 impl From<AppConfig> for AnalyticsConfig {
     fn from(value: AppConfig) -> Self {
-        AnalyticsConfig {
+        Self {
             analytics: value.analytics,
             redis: value.redis,
             logging: value.logging,
