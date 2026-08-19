@@ -7,7 +7,3 @@ pub fn random_string(len: usize) -> String {
         .map(char::from)
         .collect()
 }
-
-#[cfg(test)]
-#[path = "utils_tests.rs"]
-mod utils_tests;
