@@ -23,6 +23,7 @@ cleanup() {
 
     trap - EXIT HUP INT TERM
     zellij kill-session "$session" >/dev/null 2>&1 || true
+    zellij delete-session "$session" >/dev/null 2>&1 || true
 
     if [[ "$manage_telemetry" == true ]]; then
         for service in "${telemetry[@]}"; do
