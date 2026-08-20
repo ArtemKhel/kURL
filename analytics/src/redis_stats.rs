@@ -121,7 +121,7 @@ impl RedisStats {
             .arg(consumer_group)
             .arg(entry_id)
             .arg(event.at.format("%Y-%m-%d").to_string())
-            .arg(event.at.timestamp())
+            .arg(event.at.timestamp_millis())
             .invoke_async(conn)
             .await?;
 
