@@ -8,6 +8,7 @@ common.workspace = true
 proto.workspace = true
 
 tokio.workspace = true
+tokio-util.workspace = true
 axum.workspace = true
 tower.workspace = true
 tower-http.workspace = true
@@ -30,6 +31,7 @@ metrics.workspace = true
 url = "2.5.8"
 utoipa = { version = "5.5", features = ["axum_extras", "chrono"] }
 utoipa-redoc = { version = "6.0", features = ["axum"] }
+dashmap = "6.2.1"
 
 [features]
 web = []

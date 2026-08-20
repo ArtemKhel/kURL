@@ -13,12 +13,13 @@ use axum::{
     routing::{delete, get, post},
 };
 use tokio::net::TcpListener;
+use tokio_util::task::TaskTracker;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 use utoipa::OpenApi;
 use utoipa_redoc::{Redoc, Servable};
 
-use crate::{init::init, state::AppState};
+use crate::{grpc::core_client::CoreClient, init::init, state::AppState};
 
 pub(crate) type Config = common::config::GatewayConfig;
 
@@ -57,15 +58,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (redis, grpc_client, analytics_client) =
         init(&config).await.expect("Failed to connect to Redis or gRPC server");
 
+    let task_tracker = TaskTracker::new();
+
     let addr = format!("0.0.0.0:{}", config.gateway.port)
         .parse::<SocketAddr>()
         .context("Failed to parse socket address")?;
     let listener = TcpListener::bind(addr).await?;
 
+    let core_client = CoreClient::new(grpc_client, task_tracker.clone());
+
     let state = Arc::new(AppState {
         config,
         redis,
-        grpc_client,
+        core_client,
         analytics_client,
     });
 
@@ -84,6 +89,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     axum::serve(listener, app)
         .with_graceful_shutdown(common::shutdown(async move || eprintln!("shutting down")))
         .await?;
+
+    task_tracker.close();
+    task_tracker.wait().await;
 
     drop(otel_guard);
     Ok(())

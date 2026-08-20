@@ -13,7 +13,7 @@ use tracing::{info, instrument, warn};
 use url::Url;
 use utoipa::ToSchema;
 
-use crate::{grpc, state::SharedState};
+use crate::state::SharedState;
 
 #[utoipa::path(
     post,
@@ -37,7 +37,7 @@ pub async fn create(
         Err(e) => return Err(e), // todo: match errors
     };
 
-    match grpc::core_create_link(&state, request).await {
+    match state.core_client.create_link(request).await {
         // todo: actual url
         Ok(response) => {
             info!(short_code = response.short_code, "Link created successfully");

@@ -5,7 +5,7 @@ use tonic::Code;
 use tracing::{info, instrument, warn};
 use utoipa::ToSchema;
 
-use crate::{grpc, state::SharedState};
+use crate::state::SharedState;
 
 #[utoipa::path(
     delete,
@@ -20,7 +20,7 @@ use crate::{grpc, state::SharedState};
 )]
 #[instrument(skip_all, fields(short_code = delete_req.short_code))]
 pub async fn delete(State(state): State<SharedState>, Json(delete_req): Json<DeleteLinkReq>) -> Result<(), StatusCode> {
-    match grpc::core_delete_link(&state, delete_req.into()).await {
+    match state.core_client.delete_link(delete_req.into()).await {
         Ok(()) => Ok(()),
         Err(error) => match error.code() {
             Code::NotFound => {

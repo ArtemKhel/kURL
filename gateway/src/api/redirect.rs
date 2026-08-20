@@ -9,7 +9,6 @@ use tracing::{info, instrument, warn};
 
 use crate::{
     cache::{redis_query, send_click_event},
-    grpc,
     state::SharedState,
 };
 
@@ -40,7 +39,7 @@ pub async fn redirect(
         return Ok(Redirect::permanent(&url));
     }
 
-    match grpc::core_get_link(&state, short_code.clone()).await {
+    match state.core_client.get_link(short_code.clone()).await {
         // todo: permanent with expire?
         Ok(target) => {
             counter!("gateway_redirects").increment(1);
