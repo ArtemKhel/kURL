@@ -7,9 +7,9 @@ pub struct ConstantBackoff {
 }
 
 impl ConstantBackoff {
-    pub fn new(backoff: Duration) -> ConstantBackoff { Self { backoff } }
+    pub fn new(backoff: Duration) -> Self { Self { backoff } }
 
-    pub fn from_millis(millis: u64) -> ConstantBackoff {
+    pub fn from_millis(millis: u64) -> Self {
         Self {
             backoff: Duration::from_millis(millis),
         }

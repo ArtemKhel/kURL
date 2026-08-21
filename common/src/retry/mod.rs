@@ -1,25 +1,4 @@
-// pub trait RetryableAction {
-//     type Output;
-//     type Error;
-//     type Future: Future<Output = Result<Self::Output, Self::Error>>;
-//     fn retry(&mut self) -> Self::Future;
-// }
-//
-// impl<F, Fut, T, E> RetryableAction for F
-// where
-//     F: FnMut() -> Fut,
-//     Fut: Future<Output = Result<T, E>>,
-// {
-//     type Output = T;
-//     type Error = E;
-//     type Future = Fut;
-//
-//     fn retry(&mut self) -> Self::Future { self() }
-// }
-//
-// struct Retry<A>{
-//     action: A
-// }
+#![allow(dead_code)]
 
 pub mod backoff_strategy;
 mod retry_config;

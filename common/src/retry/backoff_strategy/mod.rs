@@ -1,4 +1,5 @@
 pub mod constant;
+pub mod exponential;
 pub mod linear;
 pub mod no_backoff;
 

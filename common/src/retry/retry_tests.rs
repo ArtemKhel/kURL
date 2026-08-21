@@ -10,6 +10,7 @@ use super::{
     backoff_strategy::{BackoffStrategy, constant::ConstantBackoff, linear::LinearBackoff, no_backoff::NoBackoff},
     retry,
 };
+use crate::retry::backoff_strategy::exponential::ExponentialBackoff;
 
 async fn run_failing<BS: BackoffStrategy>(strategy: BS, max_retries: usize, max_delay: Option<Duration>) -> Duration {
     let attempts = AtomicUsize::new(0);
@@ -101,24 +102,30 @@ async fn zero_retries_runs_once() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn no_backoff_does_not_advance_time() {
+async fn no_backoff() {
     let elapsed = run_failing(NoBackoff {}, 3, None).await;
 
     assert_eq!(elapsed, Duration::ZERO);
 }
 
 #[tokio::test(start_paused = true)]
-async fn constant_backoff_waits_before_each_retry() {
+async fn constant_backoff() {
     let elapsed = run_failing(ConstantBackoff::from_millis(100), 3, None).await;
 
     assert_eq!(elapsed, Duration::from_millis(300));
 }
 
 #[tokio::test(start_paused = true)]
-async fn linear_backoff_increases_the_delay() {
-    let elapsed = run_failing(LinearBackoff::new(Duration::from_millis(100)), 3, None).await;
+async fn linear_backoff() {
+    let elapsed = run_failing(LinearBackoff::from_millis(100), 3, None).await;
 
     assert_eq!(elapsed, Duration::from_millis(600));
+}
+
+#[tokio::test(start_paused = true)]
+async fn exponential_backoff() {
+    let elapsed = run_failing(ExponentialBackoff::from_millis(100), 3, None).await;
+    assert_eq!(elapsed, Duration::from_millis(700));
 }
 
 #[tokio::test(start_paused = true)]
