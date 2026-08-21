@@ -4,7 +4,7 @@ pub mod db_utils;
 pub mod events;
 pub mod logging;
 pub mod redis_keys;
-mod retry;
+pub mod retry;
 mod shutdown;
 
 use std::time::Duration;

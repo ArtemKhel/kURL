@@ -34,7 +34,7 @@ impl<F, BS> Retry<F, BS> {
     pub fn with_config(self, config: RetryConfig<BS>) -> Retry<F, BS> { Retry { f: self.f, config } }
 }
 
-fn retry<F, Fut, T, E>(f: F) -> Retry<F, NoBackoff>
+pub fn retry<F, Fut, T, E>(f: F) -> Retry<F, NoBackoff>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, E>>, {
