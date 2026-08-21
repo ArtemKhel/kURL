@@ -5,7 +5,10 @@ use tracing::{error, info, warn};
 
 use crate::{
     config::{DatabaseConfig, RedisConfig},
-    retry::{backoff_strategy::exponential::ExponentialBackoff, retry},
+    retry::{
+        backoff_strategy::{BackoffStrategy, exponential::ExponentialBackoff, jitter::JitterTy},
+        retry,
+    },
 };
 
 const MAX_CONNECTION_ATTEMPTS: usize = 10;
@@ -63,7 +66,7 @@ where
 {
     let max_attempts = max_attempts.max(1);
     let result = retry(operation)
-        .with_strategy(ExponentialBackoff::new(initial_backoff))
+        .with_strategy(ExponentialBackoff::new(initial_backoff).jittered(JitterTy::Equal))
         .max_retries(max_attempts - 1)
         .on_retry(|attempt, next_backoff, error: &E| {
             warn!(

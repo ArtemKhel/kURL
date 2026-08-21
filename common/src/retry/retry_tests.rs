@@ -13,7 +13,7 @@ use super::{
     backoff_strategy::{BackoffStrategy, constant::ConstantBackoff, linear::LinearBackoff, no_backoff::NoBackoff},
     retry,
 };
-use crate::retry::backoff_strategy::exponential::ExponentialBackoff;
+use crate::retry::backoff_strategy::{exponential::ExponentialBackoff, jitter::JitterTy};
 
 async fn run_failing<BS: BackoffStrategy>(strategy: BS, max_retries: usize, max_delay: Option<Duration>) -> Duration {
     let attempts = AtomicUsize::new(0);
@@ -135,21 +135,18 @@ async fn on_retry_is_called_for_each_retry() {
 #[tokio::test(start_paused = true)]
 async fn no_backoff() {
     let elapsed = run_failing(NoBackoff {}, 3, None).await;
-
     assert_eq!(elapsed, Duration::ZERO);
 }
 
 #[tokio::test(start_paused = true)]
 async fn constant_backoff() {
     let elapsed = run_failing(ConstantBackoff::from_millis(100), 3, None).await;
-
     assert_eq!(elapsed, Duration::from_millis(300));
 }
 
 #[tokio::test(start_paused = true)]
 async fn linear_backoff() {
     let elapsed = run_failing(LinearBackoff::from_millis(100), 3, None).await;
-
     assert_eq!(elapsed, Duration::from_millis(600));
 }
 
@@ -169,4 +166,16 @@ async fn max_delay_caps_each_backoff() {
     .await;
 
     assert_eq!(elapsed, Duration::from_millis(400));
+}
+
+#[tokio::test(start_paused = true)]
+async fn full_jittered_constant_backoff() {
+    let elapsed = run_failing(ConstantBackoff::from_millis(100).jittered(JitterTy::Full), 10, None).await;
+    assert!((Duration::ZERO..=Duration::from_millis(1000)).contains(&elapsed));
+}
+
+#[tokio::test(start_paused = true)]
+async fn equal_jittered_constant_backoff() {
+    let elapsed = run_failing(ConstantBackoff::from_millis(100).jittered(JitterTy::Equal), 10, None).await;
+    assert!((Duration::from_millis(500)..=Duration::from_millis(1000)).contains(&elapsed));
 }

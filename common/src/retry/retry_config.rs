@@ -3,10 +3,9 @@ use std::time::Duration;
 use crate::retry::backoff_strategy::{BackoffStrategy, no_backoff::NoBackoff};
 
 pub struct RetryConfig<BS> {
-    pub(crate) backoff_strategy: BS,
-    pub(crate) max_delay: Option<Duration>,
-    pub(crate) max_retries: usize,
-    // pub(crate) jitter: Option<()>,
+    pub backoff_strategy: BS,
+    pub max_delay: Option<Duration>,
+    pub max_retries: usize,
 }
 
 impl<BS> RetryConfig<BS> {
