@@ -1,8 +1,10 @@
+#![feature(impl_trait_in_assoc_type)]
 pub mod config;
 pub mod db_utils;
 pub mod events;
 pub mod logging;
 pub mod redis_keys;
+mod retry;
 mod shutdown;
 
 use std::time::Duration;
