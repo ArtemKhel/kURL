@@ -1,5 +1,3 @@
-use std::{error::Error, time::Duration};
-
 use anyhow::Context;
 use sqlx::migrate::Migrator;
 use tracing::info;
@@ -15,22 +13,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let database = common::config::load_database().context("Failed to load database configuration")?;
-    let database_url = database.to_string();
-    let pool = common::connect_with_retry(
-        "Postgres",
-        || {
-            let database_url = database_url.clone();
-            async move {
-                common::db_utils::connect(&database_url)
-                    .await
-                    .map_err(|error| Box::new(error) as Box<dyn Error>)
-            }
-        },
-        10,
-        Duration::from_millis(250),
-    )
-    .await
-    .context("Failed to connect to database")?;
+    let pool = common::connections::connect_postgres(&database).await?;
 
     info!(
         host = %database.host,

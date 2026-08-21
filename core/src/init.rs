@@ -1,33 +1,10 @@
-use std::time::Duration;
-
-use anyhow::Context;
 use tracing::{info, instrument};
 
 #[instrument]
 pub async fn init(config: &crate::Config) -> Result<(sqlx::PgPool, deadpool_redis::Pool), Box<dyn std::error::Error>> {
     let (db_pool, redis) = tokio::try_join!(
-        async {
-            let db_pool = common::db_utils::connect(config.database.to_string().as_str())
-                .await
-                .context("Failed to connect to database")?;
-            info!("Connected to database: {}", config.database.to_string());
-            Ok(db_pool)
-        },
-        common::connect_with_retry(
-            "Redis",
-            || {
-                let cache_url = config.redis.to_string();
-                async move {
-                    let cfg = deadpool_redis::Config::from_url(cache_url);
-                    let pool = cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1))?;
-                    let mut conn = pool.get().await?;
-                    redis::cmd("PING").query_async::<String>(&mut *conn).await?;
-                    Ok(pool)
-                }
-            },
-            10,
-            Duration::from_millis(50),
-        )
+        common::connections::connect_postgres(&config.database),
+        common::connections::connect_redis(&config.redis),
     )?;
     info!("All services initialized successfully");
     Ok((db_pool, redis))
