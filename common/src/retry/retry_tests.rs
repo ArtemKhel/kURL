@@ -1,6 +1,9 @@
 use std::{
     convert::Infallible,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Duration,
 };
 
@@ -99,6 +102,34 @@ async fn zero_retries_runs_once() {
 
     assert_eq!(result, 0);
     assert_eq!(counter.load(Ordering::Relaxed), 1);
+}
+
+#[tokio::test(start_paused = true)]
+async fn on_retry_is_called_for_each_retry() {
+    const RETRIES: usize = 3;
+    const BACKOFF: Duration = Duration::from_millis(100);
+
+    let attempts = AtomicUsize::new(0);
+    let callback_calls = Arc::new(AtomicUsize::new(0));
+    let callback_calls_clone = Arc::clone(&callback_calls);
+
+    let last_error = retry(|| async {
+        let attempt = attempts.fetch_add(1, Ordering::Relaxed);
+        Err::<Infallible, _>(attempt)
+    })
+    .with_strategy(ConstantBackoff::new(BACKOFF))
+    .max_retries(RETRIES)
+    .on_retry(move |retry, backoff, error: &usize| {
+        assert_eq!(retry, *error);
+        assert_eq!(backoff, BACKOFF);
+        callback_calls_clone.fetch_add(1, Ordering::Relaxed);
+    })
+    .await
+    .unwrap_err();
+
+    assert_eq!(last_error, RETRIES);
+    assert_eq!(attempts.load(Ordering::Relaxed), RETRIES + 1);
+    assert_eq!(callback_calls.load(Ordering::Relaxed), RETRIES);
 }
 
 #[tokio::test(start_paused = true)]

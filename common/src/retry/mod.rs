@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 pub mod backoff_strategy;
+pub mod on_retry;
 mod retry_config;
 
 use std::{cmp::min, time::Duration};
@@ -13,13 +14,13 @@ use crate::retry::{
     on_retry::{NoopOnRetry, OnRetry},
 };
 
-pub struct Retry<F, BS, RF> {
+pub struct Retry<F, BS, OR> {
     f: F,
     config: RetryConfig<BS>,
-    on_retry: Option<RF>,
+    on_retry: Option<OR>,
 }
 
-impl<F, BS, RF> Retry<F, BS, RF> {
+impl<F, BS, OR> Retry<F, BS, OR> {
     pub fn max_retries(mut self, max_attempts: usize) -> Self {
         self.config.max_retries = max_attempts;
         self
@@ -30,7 +31,7 @@ impl<F, BS, RF> Retry<F, BS, RF> {
         self
     }
 
-    pub fn with_strategy<NewBS: BackoffStrategy>(self, strategy: NewBS) -> Retry<F, NewBS, RF> {
+    pub fn with_strategy<NewBS: BackoffStrategy>(self, strategy: NewBS) -> Retry<F, NewBS, OR> {
         let config = self.config.with_strategy(strategy);
         Retry {
             f: self.f,
@@ -39,15 +40,22 @@ impl<F, BS, RF> Retry<F, BS, RF> {
         }
     }
 
-    pub fn with_config(self, config: RetryConfig<BS>) -> Retry<F, BS, RF> {
+    pub fn with_config(self, config: RetryConfig<BS>) -> Retry<F, BS, OR> {
         Retry {
             f: self.f,
             config,
             on_retry: self.on_retry,
         }
     }
+}
 
-    pub fn on_retry<NewRF>(self, on_retry: NewRF) -> Retry<F, BS, NewRF> {
+impl<F, BS, OR, Fut, T, E> Retry<F, BS, OR>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, E>>,
+{
+    pub fn on_retry<NewOR>(self, on_retry: NewOR) -> Retry<F, BS, NewOR>
+    where NewOR: OnRetry<E> {
         Retry {
             f: self.f,
             config: self.config,
@@ -93,7 +101,7 @@ where
                             .map_or(strategy_backoff, |max| min(max, strategy_backoff));
 
                         if let Some(on_retry) = &mut self.on_retry {
-                            tokio::spawn(on_retry.on_retry(attempt, backoff, &err));
+                            on_retry.on_retry(attempt, backoff, &err);
                         }
 
                         tokio::time::sleep(backoff).await;
@@ -107,7 +115,6 @@ where
     }
 }
 
-pub mod on_retry;
 #[cfg(test)]
 #[path = "retry_tests.rs"]
 mod tests;
