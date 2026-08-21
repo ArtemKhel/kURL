@@ -33,5 +33,8 @@ utoipa = { version = "5.5", features = ["axum_extras", "chrono"] }
 utoipa-redoc = { version = "6.0", features = ["axum"] }
 dashmap = "6.2.1"
 
+[dev-dependencies]
+tokio-stream = { version = "0.1.18", features = ["net"] }
+
 [features]
 web = []
