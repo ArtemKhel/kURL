@@ -21,7 +21,7 @@ serde_json.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 metrics.workspace = true
+async-trait.workspace = true
 
 itertools = "0.15.0"
-async-trait = "0.1.89"
 

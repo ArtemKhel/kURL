@@ -20,5 +20,6 @@ sqlx.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 chrono.workspace = true
+async-trait.workspace = true
 
 rand = "0.10.2"

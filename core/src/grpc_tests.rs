@@ -25,7 +25,7 @@ pub struct FakeLinkRepository {
     pub fail_exists_count: Mutex<usize>,
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl LinkRepository for FakeLinkRepository {
     async fn get_link(&self, short_code: &str) -> Result<Link, DbError> {
         let links = self.links.lock().unwrap();

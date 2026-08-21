@@ -22,7 +22,7 @@ struct FakeAnalyticsRepo {
     fail_global_daily: bool,
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl AnalyticsRepository for FakeAnalyticsRepo {
     async fn get_link_totals(&self, short_code: &str) -> Result<(i64, Option<DateTime<Utc>>), db::DbError> {
         if self.fail_link_totals {

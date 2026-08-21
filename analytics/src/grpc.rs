@@ -28,7 +28,7 @@ fn to_daily_clicks(rows: Vec<(chrono::NaiveDate, i64)>) -> Vec<DailyClicks> {
         .collect()
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl Analytics for AnalyticsService {
     #[instrument(skip(self))]
     async fn get_link_stats(

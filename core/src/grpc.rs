@@ -18,7 +18,7 @@ pub struct LinkService {
     pub state: Arc<AppState>,
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl link_service_server::LinkService for LinkService {
     #[instrument(skip(self))]
     async fn create_link(&self, request: Request<CreateLinkRequest>) -> Result<Response<CreateLinkResponse>, Status> {

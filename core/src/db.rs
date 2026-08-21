@@ -8,7 +8,7 @@ pub struct Link {
     pub expiration: Option<DateTime<Utc>>,
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 pub trait LinkRepository: std::fmt::Debug + Send + Sync {
     async fn get_link(&self, short_code: &str) -> Result<Link, DbError>;
     async fn link_exists(&self, short_code: &str) -> Result<bool, DbError>;
@@ -21,7 +21,7 @@ pub trait LinkRepository: std::fmt::Debug + Send + Sync {
     async fn delete_link(&self, short_code: &str) -> Result<(), DbError>;
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl LinkRepository for sqlx::PgPool {
     async fn get_link(&self, short_code: &str) -> Result<Link, DbError> { get_link(self, short_code).await }
 

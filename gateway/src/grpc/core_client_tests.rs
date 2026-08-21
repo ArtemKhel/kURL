@@ -47,7 +47,7 @@ struct TestLinkService {
     state: Arc<ServiceState>,
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl LinkService for TestLinkService {
     async fn create_link(&self, _request: Request<CreateLinkRequest>) -> Result<Response<CreateLinkResponse>, Status> {
         Err(Status::unimplemented("not used by these tests"))
